@@ -1,7 +1,11 @@
 ---
-- name: Install Java (OpenJDK)
+- name: Install required packages (Java + tar + SELinux tools)
   ansible.builtin.dnf:
-    name: "{{ zookeeper_java_package }}"
+    name:
+    - java-17-openjdk-headless
+    - tar
+    - policycoreutils
+    - policycoreutils-python-utils
     state: present
 
 - name: Create zookeeper group
@@ -28,20 +32,20 @@
     group: "{{ zookeeper_group }}"
     mode: "0755"
   loop:
-    - "{{ zookeeper_install_dir }}"
-    - "{{ zookeeper_data_dir }}"
-    - "{{ zookeeper_log_dir }}"
+  - "{{ zookeeper_install_dir }}"
+  - "{{ zookeeper_data_dir }}"
+  - "{{ zookeeper_log_dir }}"
 
 - name: Check if zookeeper binary already installed at the target version
   ansible.builtin.stat:
-    path: "{{ zookeeper_install_dir }}/bin/zkServer.sh"
-  register: zookeeper_bin_stat
+    path: "{{ zookeeper_install_dir }}/VERSION"
+  register: zookeeper_version_stat
 
 - name: Read installed zookeeper version (if present)
   ansible.builtin.slurp:
     src: "{{ zookeeper_install_dir }}/VERSION"
   register: zookeeper_installed_version_raw
-  when: zookeeper_bin_stat.stat.exists
+  when: zookeeper_version_stat.stat.exists
   failed_when: false
 
 - name: Set installed zookeeper version fact
@@ -49,7 +53,7 @@
     zookeeper_installed_version: >-
       {{
         (zookeeper_installed_version_raw.content | b64decode | trim)
-        if (zookeeper_bin_stat.stat.exists and zookeeper_installed_version_raw.content is defined)
+        if (zookeeper_version_stat.stat.exists and zookeeper_installed_version_raw.content is defined)
         else ''
       }}
 
@@ -88,17 +92,22 @@
     mode: "0644"
   when: zookeeper_installed_version != zookeeper_version
 
-- name: Cleanup temporary extraction dir
+- name: Cleanup zookeeper extracted dir from /tmp
   ansible.builtin.file:
     path: "/tmp/{{ zookeeper_extracted_dirname }}"
     state: absent
   when: zookeeper_installed_version != zookeeper_version
 
-- name: Cleanup downloaded archive
+- name: Cleanup zookeeper archive from /tmp
   ansible.builtin.file:
     path: "/tmp/{{ zookeeper_archive_filename }}"
     state: absent
   when: zookeeper_installed_version != zookeeper_version
+
+- name: Restore SELinux context on zookeeper install dir
+  ansible.builtin.command:
+    cmd: restorecon -Rv {{ zookeeper_install_dir }}
+  changed_when: false
 
 - name: Deploy zoo.cfg
   ansible.builtin.template:
@@ -126,8 +135,8 @@
     group: root
     mode: "0644"
   notify:
-    - Reload systemd
-    - Restart zookeeper
+  - Reload systemd
+  - Restart zookeeper
 
 - name: Enable and start zookeeper
   ansible.builtin.systemd:

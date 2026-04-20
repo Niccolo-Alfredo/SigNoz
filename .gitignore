@@ -1,0 +1,5 @@
+.vscode/
+.ansible/
+.DS_Store
+kubeadm_certificate_key.cred
+ansible-vault-password-file

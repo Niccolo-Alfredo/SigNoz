@@ -5,7 +5,14 @@
     system: true
     state: present
 
-- name: Create signoz user
+- name: Check if signoz user already exists
+  ansible.builtin.getent:
+    database: passwd
+    key: "{{ signoz_user }}"
+  register: signoz_user_check
+  failed_when: false
+
+- name: Create signoz user if not present
   ansible.builtin.user:
     name: "{{ signoz_user }}"
     group: "{{ signoz_group }}"
@@ -14,6 +21,7 @@
     create_home: false
     shell: /sbin/nologin
     state: present
+  when: signoz_user_check.ansible_facts is not defined
 
 - name: Create signoz directories
   ansible.builtin.file:

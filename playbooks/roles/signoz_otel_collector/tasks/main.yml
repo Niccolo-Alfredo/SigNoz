@@ -5,7 +5,14 @@
     system: true
     state: present
 
-- name: Ensure signoz user exists
+- name: Check if signoz user already exists
+  ansible.builtin.getent:
+    database: passwd
+    key: "{{ signoz_otel_user }}"
+  register: signoz_otel_user_check
+  failed_when: false
+
+- name: Create signoz user if not present
   ansible.builtin.user:
     name: "{{ signoz_otel_user }}"
     group: "{{ signoz_otel_group }}"
@@ -14,6 +21,7 @@
     create_home: false
     shell: /sbin/nologin
     state: present
+  when: signoz_otel_user_check.ansible_facts is not defined
 
 - name: Create signoz-otel-collector directories
   ansible.builtin.file:
@@ -23,9 +31,9 @@
     group: "{{ signoz_otel_group }}"
     mode: "0755"
   loop:
-    - "{{ signoz_otel_install_dir }}"
-    - "{{ signoz_otel_data_dir }}"
-    - "{{ signoz_otel_conf_dir }}"
+  - "{{ signoz_otel_install_dir }}"
+  - "{{ signoz_otel_data_dir }}"
+  - "{{ signoz_otel_conf_dir }}"
 
 - name: Download signoz-otel-collector archive
   ansible.builtin.get_url:
@@ -49,6 +57,11 @@
     group: "{{ signoz_otel_group }}"
     mode: preserve
   notify: Restart signoz-otel-collector
+
+- name: Restore SELinux context on signoz-otel-collector install dir
+  ansible.builtin.command:
+    cmd: restorecon -Rv {{ signoz_otel_install_dir }}
+  changed_when: false
 
 - name: Cleanup signoz-otel-collector temp extraction dir
   ansible.builtin.file:
@@ -86,8 +99,8 @@
     group: root
     mode: "0644"
   notify:
-    - Reload systemd
-    - Restart signoz-otel-collector
+  - Reload systemd
+  - Restart signoz-otel-collector
 
 - name: Enable and start signoz-otel-collector
   ansible.builtin.systemd:

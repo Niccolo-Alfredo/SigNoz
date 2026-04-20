@@ -5,8 +5,7 @@ galaxy_info:
   license: proprietary
   min_ansible_version: "2.9"
   platforms:
-    - name: EL
-      versions:
-        - "9"
-dependencies:
-  - role: zookeeper
+  - name: EL
+    versions:
+    - "9"
+dependencies: []

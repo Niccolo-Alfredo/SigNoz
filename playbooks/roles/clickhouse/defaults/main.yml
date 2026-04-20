@@ -1,19 +1,21 @@
 ---
 # Version pinning
-# Set to a specific version like "24.8.4.13" to pin, or leave empty for latest
-clickhouse_version: ""
+# Pinned to 25.8 LTS - latest signed and stable LTS release.
+# The 26.x packages in the LTS channel are currently unsigned (known upstream issue).
+# Set to "" to use latest in channel (not recommended until signing is fixed upstream).
+clickhouse_version: "25.8.22.28"
 
-# Repository
-clickhouse_repo_url: "https://packages.clickhouse.com/rpm/clickhouse.repo"
+# Repository channel: "lts" for Long Term Support, "stable" for latest stable
+clickhouse_repo_channel: "lts"
 
 # Packages
 clickhouse_packages:
-  - clickhouse-server
-  - clickhouse-client
+- clickhouse-server
+- clickhouse-client
 
 # Database credentials
-# NOTE: staging-only, internal password. To be moved to ansible-vault later.
-clickhouse_password: "changeme"
+# NOTE: staging/prod internal password. To be moved to ansible-vault.
+clickhouse_password: "password"
 
 # Paths
 clickhouse_config_dir: /etc/clickhouse-server/config.d

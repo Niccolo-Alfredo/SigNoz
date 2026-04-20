@@ -1,15 +1,19 @@
 ---
-- name: Install yum-utils (required for yum-config-manager)
+- name: Debug ClickHouse version
+  debug:
+    msg: "La versione selezionata è {{ clickhouse_version }}"
+
+- name: Install yum-utils
   ansible.builtin.dnf:
     name: yum-utils
     state: present
 
-- name: Add ClickHouse RPM repository
+- name: Add ClickHouse RPM repository ({{ clickhouse_repo_channel }})
   ansible.builtin.yum_repository:
-    name: clickhouse-stable
-    description: ClickHouse - Stable Repository
-    baseurl: https://packages.clickhouse.com/rpm/stable/
-    gpgkey: https://packages.clickhouse.com/rpm/stable/repodata/repomd.xml.key
+    name: "clickhouse-{{ clickhouse_repo_channel }}"
+    description: "ClickHouse - {{ clickhouse_repo_channel | capitalize }} Repository"
+    baseurl: "https://packages.clickhouse.com/rpm/{{ clickhouse_repo_channel }}/"
+    gpgkey: "https://packages.clickhouse.com/rpm/{{ clickhouse_repo_channel }}/repodata/repomd.xml.key"
     gpgcheck: true
     enabled: true
     state: present
@@ -23,7 +27,7 @@
         else (clickhouse_packages | map('regex_replace', '$', '-' ~ clickhouse_version) | list)
       }}
     state: present
-    disable_gpg_check: false
+    disable_gpg_check: true
 
 - name: Ensure ClickHouse config directories exist
   ansible.builtin.file:
@@ -33,8 +37,8 @@
     group: "{{ clickhouse_group }}"
     mode: "0750"
   loop:
-    - "{{ clickhouse_config_dir }}"
-    - "{{ clickhouse_users_dir }}"
+  - "{{ clickhouse_config_dir }}"
+  - "{{ clickhouse_users_dir }}"
 
 - name: Deploy cluster.xml (Zookeeper + replication config)
   ansible.builtin.template:
@@ -45,7 +49,7 @@
     mode: "0640"
   notify: Restart clickhouse-server
 
-- name: Deploy default user password (users.d override)
+- name: Deploy default user password override
   ansible.builtin.template:
     src: default-password.xml.j2
     dest: "{{ clickhouse_users_dir }}/default-password.xml"
@@ -60,9 +64,9 @@
     enabled: true
     state: started
 
-- name: Wait for ClickHouse to be ready
+- name: Wait for ClickHouse to be ready on port 9000
   ansible.builtin.wait_for:
     host: 127.0.0.1
-    port: 9000
+    port: "{{ clickhouse_remote_port }}"
     delay: 2
     timeout: 60

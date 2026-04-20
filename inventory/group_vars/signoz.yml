@@ -22,7 +22,11 @@ zookeeper_java_package: java-17-openjdk-headless
 # -----------------------------------------------------------------------------
 # ClickHouse
 # -----------------------------------------------------------------------------
-clickhouse_version: ""          # vuoto = latest; es. "24.8.4.13" per pinnare
+# Version pinning
+# Pinned to 25.8 LTS - latest signed and stable LTS release.
+# The 26.x packages in the LTS channel are currently unsigned (known upstream issue).
+# Set to "" to use latest in channel (not recommended until signing is fixed upstream).
+clickhouse_version: "25.8.22.28"
 clickhouse_password: "password" # TODO: spostare in ansible-vault
 clickhouse_cluster_name: cluster
 clickhouse_shard: "01"
@@ -35,14 +39,14 @@ clickhouse_remote_port: 9000
 # -----------------------------------------------------------------------------
 # SigNoz
 # -----------------------------------------------------------------------------
-signoz_version: "latest"              # es. "v0.79.0" per pinnare
+signoz_version: "latest" # es. "v0.79.0" per pinnare
 signoz_otel_collector_version: "latest"
 signoz_install_dir: /opt/signoz
 signoz_data_dir: /var/lib/signoz
 signoz_user: signoz
 signoz_group: signoz
 signoz_api_port: 8080
-signoz_jwt_secret: "changeme-jwt-secret"  # TODO: spostare in ansible-vault
+signoz_jwt_secret: "changeme-jwt-secret" # TODO: spostare in ansible-vault
 signoz_alertmanager_provider: signoz
 signoz_telemetrystore_provider: clickhouse
 signoz_dot_metrics_enabled: true
@@ -63,7 +67,7 @@ signoz_otel_group: "{{ signoz_group }}"
 signoz_otel_opamp_server_endpoint: "ws://127.0.0.1:4320/v1/opamp"
 
 # DSN per dominio telemetry (derivati da clickhouse_password)
-signoz_otel_clickhouse_traces_dsn:   "tcp://localhost:{{ clickhouse_remote_port }}/signoz_traces?password={{ clickhouse_password }}"
-signoz_otel_clickhouse_metrics_dsn:  "tcp://localhost:{{ clickhouse_remote_port }}/signoz_metrics?password={{ clickhouse_password }}"
-signoz_otel_clickhouse_logs_dsn:     "tcp://localhost:{{ clickhouse_remote_port }}/signoz_logs?password={{ clickhouse_password }}"
+signoz_otel_clickhouse_traces_dsn: "tcp://localhost:{{ clickhouse_remote_port }}/signoz_traces?password={{ clickhouse_password }}"
+signoz_otel_clickhouse_metrics_dsn: "tcp://localhost:{{ clickhouse_remote_port }}/signoz_metrics?password={{ clickhouse_password }}"
+signoz_otel_clickhouse_logs_dsn: "tcp://localhost:{{ clickhouse_remote_port }}/signoz_logs?password={{ clickhouse_password }}"
 signoz_otel_clickhouse_metadata_dsn: "tcp://localhost:{{ clickhouse_remote_port }}/signoz_metadata?password={{ clickhouse_password }}"

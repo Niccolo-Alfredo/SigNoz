@@ -1,0 +1,6 @@
+---
+- name: Test role - signoz
+  hosts: signoz
+  become: true
+  roles:
+  - role: signoz

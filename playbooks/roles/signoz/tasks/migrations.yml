@@ -17,7 +17,7 @@
     dest: "{{ signoz_migrations_tmp_dir }}"
     remote_src: true
 
-- name: Set migration binary path
+- name: Set migration binary path fact
   ansible.builtin.set_fact:
     signoz_migration_binary: "{{ signoz_migrations_tmp_dir }}/{{ signoz_otel_collector_extracted_dirname }}/bin/signoz-otel-collector"
 
@@ -26,34 +26,30 @@
     path: "{{ signoz_migration_binary }}"
     mode: "0755"
 
+- name: Restore SELinux context on migration binary
+  ansible.builtin.command:
+    cmd: restorecon -Rv {{ signoz_migrations_tmp_dir }}
+  changed_when: false
+
 - name: Run bootstrap migration
   ansible.builtin.command:
     cmd: >-
-      {{ signoz_migration_binary }} migrate bootstrap
-      --clickhouse-dsn={{ signoz_clickhouse_dsn }}
-      --clickhouse-replication=true
-  register: signoz_migrate_bootstrap
-  changed_when: signoz_migrate_bootstrap.rc == 0
+      {{ signoz_migration_binary }} migrate bootstrap --clickhouse-dsn={{ signoz_clickhouse_dsn }} --clickhouse-replication=true
+  changed_when: false
   no_log: true
 
 - name: Run sync migrations (up)
   ansible.builtin.command:
     cmd: >-
-      {{ signoz_migration_binary }} migrate sync up
-      --clickhouse-dsn={{ signoz_clickhouse_dsn }}
-      --clickhouse-replication=true
-  register: signoz_migrate_sync
-  changed_when: signoz_migrate_sync.rc == 0
+      {{ signoz_migration_binary }} migrate sync up --clickhouse-dsn={{ signoz_clickhouse_dsn }} --clickhouse-replication=true
+  changed_when: false
   no_log: true
 
 - name: Run async migrations (up)
   ansible.builtin.command:
     cmd: >-
-      {{ signoz_migration_binary }} migrate async up
-      --clickhouse-dsn={{ signoz_clickhouse_dsn }}
-      --clickhouse-replication=true
-  register: signoz_migrate_async
-  changed_when: signoz_migrate_async.rc == 0
+      {{ signoz_migration_binary }} migrate async up --clickhouse-dsn={{ signoz_clickhouse_dsn }} --clickhouse-replication=true
+  changed_when: false
   no_log: true
 
 - name: Cleanup migration temporary directory

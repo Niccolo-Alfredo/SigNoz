@@ -23,12 +23,8 @@
     group: "{{ signoz_group }}"
     mode: "0755"
   loop:
-    - "{{ signoz_install_dir }}"
-    - "{{ signoz_data_dir }}"
-
-- name: Run ClickHouse schema migrations
-  ansible.builtin.include_tasks: migrations.yml
-  when: signoz_run_migrations | bool
+  - "{{ signoz_install_dir }}"
+  - "{{ signoz_data_dir }}"
 
 - name: Download signoz archive
   ansible.builtin.get_url:
@@ -52,6 +48,11 @@
     group: "{{ signoz_group }}"
     mode: preserve
   notify: Restart signoz
+
+- name: Restore SELinux context on signoz install dir
+  ansible.builtin.command:
+    cmd: restorecon -Rv {{ signoz_install_dir }}
+  changed_when: false
 
 - name: Cleanup signoz temp extraction dir
   ansible.builtin.file:
@@ -88,8 +89,12 @@
     group: root
     mode: "0644"
   notify:
-    - Reload systemd
-    - Restart signoz
+  - Reload systemd
+  - Restart signoz
+
+- name: Run ClickHouse schema migrations
+  ansible.builtin.include_tasks: migrations.yml
+  when: signoz_run_migrations | bool
 
 - name: Enable and start signoz
   ansible.builtin.systemd:
@@ -119,6 +124,6 @@
 - name: Assert signoz health status is ok
   ansible.builtin.assert:
     that:
-      - (signoz_health.json.status | default('')) == 'ok'
+    - (signoz_health.json.status | default('')) == 'ok'
     fail_msg: "SigNoz health endpoint returned unexpected status: {{ signoz_health.content }}"
     success_msg: "SigNoz is healthy"

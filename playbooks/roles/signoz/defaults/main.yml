@@ -18,7 +18,7 @@ signoz_group: signoz
 
 # Service configuration
 signoz_api_port: 8080
-signoz_jwt_secret: "changeme-jwt-secret"
+signoz_jwt_secret: "secret"
 signoz_alertmanager_provider: signoz
 signoz_telemetrystore_provider: clickhouse
 signoz_dot_metrics_enabled: true

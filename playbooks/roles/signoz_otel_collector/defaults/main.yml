@@ -1,0 +1,86 @@
+---
+# Version
+# Set to a specific version like "v0.111.40" to pin, or "latest"
+signoz_otel_collector_version: "latest"
+
+# Paths
+signoz_otel_install_dir: /opt/signoz-otel-collector
+signoz_otel_data_dir: /var/lib/signoz-otel-collector
+signoz_otel_conf_dir: "{{ signoz_otel_install_dir }}/conf"
+
+# User/group (reuse signoz user from signoz role)
+signoz_otel_user: signoz
+signoz_otel_group: signoz
+
+# ClickHouse DSNs per telemetry domain
+# Overridden from group_vars; password aligned with clickhouse role
+signoz_otel_clickhouse_traces_dsn: "tcp://localhost:9000/signoz_traces?password={{ clickhouse_password }}"
+signoz_otel_clickhouse_metrics_dsn: "tcp://localhost:9000/signoz_metrics?password={{ clickhouse_password }}"
+signoz_otel_clickhouse_logs_dsn: "tcp://localhost:9000/signoz_logs?password={{ clickhouse_password }}"
+signoz_otel_clickhouse_metadata_dsn: "tcp://localhost:9000/signoz_metadata?password={{ clickhouse_password }}"
+
+# Receiver endpoints
+signoz_otel_otlp_grpc_endpoint: "0.0.0.0:4317"
+signoz_otel_otlp_http_endpoint: "0.0.0.0:4318"
+signoz_otel_otlp_grpc_max_recv_msg_size_mib: 16
+signoz_otel_jaeger_grpc_endpoint: "0.0.0.0:14250"
+signoz_otel_jaeger_http_endpoint: "0.0.0.0:14268"
+signoz_otel_heroku_endpoint: "0.0.0.0:8081"
+signoz_otel_json_log_endpoint: "0.0.0.0:8082"
+
+# Extensions
+signoz_otel_health_check_endpoint: "0.0.0.0:13133"
+signoz_otel_zpages_endpoint: "localhost:55679"
+signoz_otel_pprof_endpoint: "localhost:1777"
+
+# Processors
+signoz_otel_batch_send_size: 50000
+signoz_otel_batch_timeout: "1s"
+
+signoz_otel_spanmetrics_dimensions_cache_size: 100000
+signoz_otel_spanmetrics_latency_buckets:
+  - "100us"
+  - "1ms"
+  - "2ms"
+  - "6ms"
+  - "10ms"
+  - "50ms"
+  - "100ms"
+  - "250ms"
+  - "500ms"
+  - "1000ms"
+  - "1400ms"
+  - "2000ms"
+  - "5s"
+  - "10s"
+  - "20s"
+  - "40s"
+  - "60s"
+
+# Exporter timeouts
+signoz_otel_traces_exporter_timeout: "45s"
+signoz_otel_metrics_exporter_timeout: "45s"
+signoz_otel_logs_exporter_timeout: "10s"
+signoz_otel_metadata_exporter_timeout: "10s"
+signoz_otel_metadata_tenant_id: "default"
+
+# OpAMP management
+signoz_otel_opamp_server_endpoint: "ws://127.0.0.1:4320/v1/opamp"
+
+# Architecture detection
+signoz_otel_arch_map:
+  x86_64: amd64
+  aarch64: arm64
+signoz_otel_arch: "{{ signoz_otel_arch_map[ansible_architecture] }}"
+
+# Download URL
+signoz_otel_download_url: >-
+  {{
+    'https://github.com/SigNoz/signoz-otel-collector/releases/latest/download/signoz-otel-collector_linux_' ~ signoz_otel_arch ~ '.tar.gz'
+    if signoz_otel_collector_version == 'latest'
+    else 'https://github.com/SigNoz/signoz-otel-collector/releases/download/' ~ signoz_otel_collector_version ~ '/signoz-otel-collector_linux_' ~ signoz_otel_arch ~ '.tar.gz'
+  }}
+signoz_otel_extracted_dirname: "signoz-otel-collector_linux_{{ signoz_otel_arch }}"
+
+# Runtime copy path (mutable config target written by collector at runtime)
+signoz_otel_copy_path: "{{ signoz_otel_data_dir }}/config.yaml"

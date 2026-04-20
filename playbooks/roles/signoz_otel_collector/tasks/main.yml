@@ -1,0 +1,114 @@
+---
+- name: Ensure signoz group exists
+  ansible.builtin.group:
+    name: "{{ signoz_otel_group }}"
+    system: true
+    state: present
+
+- name: Ensure signoz user exists
+  ansible.builtin.user:
+    name: "{{ signoz_otel_user }}"
+    group: "{{ signoz_otel_group }}"
+    system: true
+    home: "{{ signoz_otel_install_dir }}"
+    create_home: false
+    shell: /sbin/nologin
+    state: present
+
+- name: Create signoz-otel-collector directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ signoz_otel_user }}"
+    group: "{{ signoz_otel_group }}"
+    mode: "0755"
+  loop:
+    - "{{ signoz_otel_install_dir }}"
+    - "{{ signoz_otel_data_dir }}"
+    - "{{ signoz_otel_conf_dir }}"
+
+- name: Download signoz-otel-collector archive
+  ansible.builtin.get_url:
+    url: "{{ signoz_otel_download_url }}"
+    dest: "/tmp/signoz-otel-collector.tar.gz"
+    mode: "0644"
+    force: "{{ signoz_otel_collector_version == 'latest' }}"
+
+- name: Extract signoz-otel-collector archive
+  ansible.builtin.unarchive:
+    src: "/tmp/signoz-otel-collector.tar.gz"
+    dest: /tmp
+    remote_src: true
+
+- name: Copy signoz-otel-collector files into install dir
+  ansible.builtin.copy:
+    src: "/tmp/{{ signoz_otel_extracted_dirname }}/"
+    dest: "{{ signoz_otel_install_dir }}/"
+    remote_src: true
+    owner: "{{ signoz_otel_user }}"
+    group: "{{ signoz_otel_group }}"
+    mode: preserve
+  notify: Restart signoz-otel-collector
+
+- name: Cleanup signoz-otel-collector temp extraction dir
+  ansible.builtin.file:
+    path: "/tmp/{{ signoz_otel_extracted_dirname }}"
+    state: absent
+
+- name: Cleanup signoz-otel-collector archive
+  ansible.builtin.file:
+    path: "/tmp/signoz-otel-collector.tar.gz"
+    state: absent
+
+- name: Deploy collector config.yaml
+  ansible.builtin.template:
+    src: config.yaml.j2
+    dest: "{{ signoz_otel_conf_dir }}/config.yaml"
+    owner: "{{ signoz_otel_user }}"
+    group: "{{ signoz_otel_group }}"
+    mode: "0640"
+  notify: Restart signoz-otel-collector
+
+- name: Deploy collector opamp.yaml
+  ansible.builtin.template:
+    src: opamp.yaml.j2
+    dest: "{{ signoz_otel_conf_dir }}/opamp.yaml"
+    owner: "{{ signoz_otel_user }}"
+    group: "{{ signoz_otel_group }}"
+    mode: "0640"
+  notify: Restart signoz-otel-collector
+
+- name: Deploy signoz-otel-collector systemd unit
+  ansible.builtin.template:
+    src: signoz-otel-collector.service.j2
+    dest: /etc/systemd/system/signoz-otel-collector.service
+    owner: root
+    group: root
+    mode: "0644"
+  notify:
+    - Reload systemd
+    - Restart signoz-otel-collector
+
+- name: Enable and start signoz-otel-collector
+  ansible.builtin.systemd:
+    name: signoz-otel-collector.service
+    enabled: true
+    state: started
+    daemon_reload: true
+
+- name: Wait for collector health endpoint to be ready
+  ansible.builtin.wait_for:
+    host: 127.0.0.1
+    port: 13133
+    delay: 2
+    timeout: 60
+
+- name: Verify collector health endpoint
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:13133/"
+    method: GET
+    status_code: 200
+  register: signoz_otel_health
+  retries: 5
+  delay: 3
+  until: signoz_otel_health.status == 200

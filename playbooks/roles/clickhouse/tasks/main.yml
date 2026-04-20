@@ -1,0 +1,68 @@
+---
+- name: Install yum-utils (required for yum-config-manager)
+  ansible.builtin.dnf:
+    name: yum-utils
+    state: present
+
+- name: Add ClickHouse RPM repository
+  ansible.builtin.yum_repository:
+    name: clickhouse-stable
+    description: ClickHouse - Stable Repository
+    baseurl: https://packages.clickhouse.com/rpm/stable/
+    gpgkey: https://packages.clickhouse.com/rpm/stable/repodata/repomd.xml.key
+    gpgcheck: true
+    enabled: true
+    state: present
+
+- name: Install ClickHouse packages
+  ansible.builtin.dnf:
+    name: >-
+      {{
+        clickhouse_packages
+        if (clickhouse_version | length == 0)
+        else (clickhouse_packages | map('regex_replace', '$', '-' ~ clickhouse_version) | list)
+      }}
+    state: present
+    disable_gpg_check: false
+
+- name: Ensure ClickHouse config directories exist
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ clickhouse_user }}"
+    group: "{{ clickhouse_group }}"
+    mode: "0750"
+  loop:
+    - "{{ clickhouse_config_dir }}"
+    - "{{ clickhouse_users_dir }}"
+
+- name: Deploy cluster.xml (Zookeeper + replication config)
+  ansible.builtin.template:
+    src: cluster.xml.j2
+    dest: "{{ clickhouse_config_dir }}/cluster.xml"
+    owner: "{{ clickhouse_user }}"
+    group: "{{ clickhouse_group }}"
+    mode: "0640"
+  notify: Restart clickhouse-server
+
+- name: Deploy default user password (users.d override)
+  ansible.builtin.template:
+    src: default-password.xml.j2
+    dest: "{{ clickhouse_users_dir }}/default-password.xml"
+    owner: "{{ clickhouse_user }}"
+    group: "{{ clickhouse_group }}"
+    mode: "0640"
+  notify: Restart clickhouse-server
+
+- name: Enable and start clickhouse-server
+  ansible.builtin.systemd:
+    name: clickhouse-server.service
+    enabled: true
+    state: started
+
+- name: Wait for ClickHouse to be ready
+  ansible.builtin.wait_for:
+    host: 127.0.0.1
+    port: 9000
+    delay: 2
+    timeout: 60

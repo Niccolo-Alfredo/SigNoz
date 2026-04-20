@@ -1,0 +1,62 @@
+---
+- name: Create migrations temporary directory
+  ansible.builtin.file:
+    path: "{{ signoz_migrations_tmp_dir }}"
+    state: directory
+    mode: "0755"
+
+- name: Download signoz-otel-collector for migrations
+  ansible.builtin.get_url:
+    url: "{{ signoz_otel_collector_download_url }}"
+    dest: "{{ signoz_migrations_tmp_dir }}/signoz-otel-collector.tar.gz"
+    mode: "0644"
+
+- name: Extract signoz-otel-collector for migrations
+  ansible.builtin.unarchive:
+    src: "{{ signoz_migrations_tmp_dir }}/signoz-otel-collector.tar.gz"
+    dest: "{{ signoz_migrations_tmp_dir }}"
+    remote_src: true
+
+- name: Set migration binary path
+  ansible.builtin.set_fact:
+    signoz_migration_binary: "{{ signoz_migrations_tmp_dir }}/{{ signoz_otel_collector_extracted_dirname }}/bin/signoz-otel-collector"
+
+- name: Ensure migration binary is executable
+  ansible.builtin.file:
+    path: "{{ signoz_migration_binary }}"
+    mode: "0755"
+
+- name: Run bootstrap migration
+  ansible.builtin.command:
+    cmd: >-
+      {{ signoz_migration_binary }} migrate bootstrap
+      --clickhouse-dsn={{ signoz_clickhouse_dsn }}
+      --clickhouse-replication=true
+  register: signoz_migrate_bootstrap
+  changed_when: signoz_migrate_bootstrap.rc == 0
+  no_log: true
+
+- name: Run sync migrations (up)
+  ansible.builtin.command:
+    cmd: >-
+      {{ signoz_migration_binary }} migrate sync up
+      --clickhouse-dsn={{ signoz_clickhouse_dsn }}
+      --clickhouse-replication=true
+  register: signoz_migrate_sync
+  changed_when: signoz_migrate_sync.rc == 0
+  no_log: true
+
+- name: Run async migrations (up)
+  ansible.builtin.command:
+    cmd: >-
+      {{ signoz_migration_binary }} migrate async up
+      --clickhouse-dsn={{ signoz_clickhouse_dsn }}
+      --clickhouse-replication=true
+  register: signoz_migrate_async
+  changed_when: signoz_migrate_async.rc == 0
+  no_log: true
+
+- name: Cleanup migration temporary directory
+  ansible.builtin.file:
+    path: "{{ signoz_migrations_tmp_dir }}"
+    state: absent

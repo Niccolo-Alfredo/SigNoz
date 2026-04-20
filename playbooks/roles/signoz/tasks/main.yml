@@ -1,0 +1,124 @@
+---
+- name: Create signoz group
+  ansible.builtin.group:
+    name: "{{ signoz_group }}"
+    system: true
+    state: present
+
+- name: Create signoz user
+  ansible.builtin.user:
+    name: "{{ signoz_user }}"
+    group: "{{ signoz_group }}"
+    system: true
+    home: "{{ signoz_install_dir }}"
+    create_home: false
+    shell: /sbin/nologin
+    state: present
+
+- name: Create signoz directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ signoz_user }}"
+    group: "{{ signoz_group }}"
+    mode: "0755"
+  loop:
+    - "{{ signoz_install_dir }}"
+    - "{{ signoz_data_dir }}"
+
+- name: Run ClickHouse schema migrations
+  ansible.builtin.include_tasks: migrations.yml
+  when: signoz_run_migrations | bool
+
+- name: Download signoz archive
+  ansible.builtin.get_url:
+    url: "{{ signoz_download_url }}"
+    dest: "/tmp/signoz.tar.gz"
+    mode: "0644"
+    force: "{{ signoz_version == 'latest' }}"
+
+- name: Extract signoz archive
+  ansible.builtin.unarchive:
+    src: "/tmp/signoz.tar.gz"
+    dest: /tmp
+    remote_src: true
+
+- name: Copy signoz files into install dir
+  ansible.builtin.copy:
+    src: "/tmp/{{ signoz_extracted_dirname }}/"
+    dest: "{{ signoz_install_dir }}/"
+    remote_src: true
+    owner: "{{ signoz_user }}"
+    group: "{{ signoz_group }}"
+    mode: preserve
+  notify: Restart signoz
+
+- name: Cleanup signoz temp extraction dir
+  ansible.builtin.file:
+    path: "/tmp/{{ signoz_extracted_dirname }}"
+    state: absent
+
+- name: Cleanup signoz archive
+  ansible.builtin.file:
+    path: "/tmp/signoz.tar.gz"
+    state: absent
+
+- name: Ensure signoz conf directory exists
+  ansible.builtin.file:
+    path: "{{ signoz_install_dir }}/conf"
+    state: directory
+    owner: "{{ signoz_user }}"
+    group: "{{ signoz_group }}"
+    mode: "0755"
+
+- name: Deploy signoz systemd environment file
+  ansible.builtin.template:
+    src: systemd.env.j2
+    dest: "{{ signoz_install_dir }}/conf/systemd.env"
+    owner: "{{ signoz_user }}"
+    group: "{{ signoz_group }}"
+    mode: "0640"
+  notify: Restart signoz
+
+- name: Deploy signoz systemd unit
+  ansible.builtin.template:
+    src: signoz.service.j2
+    dest: /etc/systemd/system/signoz.service
+    owner: root
+    group: root
+    mode: "0644"
+  notify:
+    - Reload systemd
+    - Restart signoz
+
+- name: Enable and start signoz
+  ansible.builtin.systemd:
+    name: signoz.service
+    enabled: true
+    state: started
+    daemon_reload: true
+
+- name: Wait for signoz API to be ready
+  ansible.builtin.wait_for:
+    host: 127.0.0.1
+    port: "{{ signoz_api_port }}"
+    delay: 3
+    timeout: 120
+
+- name: Verify signoz health endpoint
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ signoz_api_port }}/api/v1/health"
+    method: GET
+    return_content: true
+    status_code: 200
+  register: signoz_health
+  retries: 5
+  delay: 3
+  until: signoz_health.status == 200
+
+- name: Assert signoz health status is ok
+  ansible.builtin.assert:
+    that:
+      - (signoz_health.json.status | default('')) == 'ok'
+    fail_msg: "SigNoz health endpoint returned unexpected status: {{ signoz_health.content }}"
+    success_msg: "SigNoz is healthy"

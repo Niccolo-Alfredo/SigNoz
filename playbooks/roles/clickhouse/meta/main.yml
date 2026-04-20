@@ -1,0 +1,12 @@
+---
+galaxy_info:
+  author: Niccolo
+  description: ClickHouse server for SigNoz observability stack
+  license: proprietary
+  min_ansible_version: "2.9"
+  platforms:
+    - name: EL
+      versions:
+        - "9"
+dependencies:
+  - role: zookeeper

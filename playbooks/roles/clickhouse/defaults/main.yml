@@ -1,0 +1,37 @@
+---
+# Version pinning
+# Set to a specific version like "24.8.4.13" to pin, or leave empty for latest
+clickhouse_version: ""
+
+# Repository
+clickhouse_repo_url: "https://packages.clickhouse.com/rpm/clickhouse.repo"
+
+# Packages
+clickhouse_packages:
+  - clickhouse-server
+  - clickhouse-client
+
+# Database credentials
+# NOTE: staging-only, internal password. To be moved to ansible-vault later.
+clickhouse_password: "changeme"
+
+# Paths
+clickhouse_config_dir: /etc/clickhouse-server/config.d
+clickhouse_users_dir: /etc/clickhouse-server/users.d
+
+# Cluster topology (single-node, replicated schema for SigNoz compatibility)
+clickhouse_cluster_name: cluster
+clickhouse_shard: "01"
+clickhouse_replica: "01"
+
+# Zookeeper connection (defaults to local instance from zookeeper role)
+clickhouse_zookeeper_host: 127.0.0.1
+clickhouse_zookeeper_port: 2181
+
+# Internal remote server
+clickhouse_remote_host: 127.0.0.1
+clickhouse_remote_port: 9000
+
+# System user (created by RPM package)
+clickhouse_user: clickhouse
+clickhouse_group: clickhouse

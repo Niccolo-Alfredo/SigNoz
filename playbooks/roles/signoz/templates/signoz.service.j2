@@ -1,0 +1,19 @@
+# Managed by Ansible - do not edit manually
+[Unit]
+Description=SigNoz
+Documentation=https://signoz.io/docs
+After=clickhouse-server.service
+Requires=clickhouse-server.service
+
+[Service]
+User={{ signoz_user }}
+Group={{ signoz_group }}
+Type=simple
+KillMode=mixed
+Restart=on-failure
+WorkingDirectory={{ signoz_install_dir }}
+EnvironmentFile={{ signoz_install_dir }}/conf/systemd.env
+ExecStart={{ signoz_install_dir }}/bin/signoz server
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,82 @@
+# Managed by Ansible - do not edit manually
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: {{ signoz_otel_otlp_grpc_endpoint }}
+        max_recv_msg_size_mib: {{ signoz_otel_otlp_grpc_max_recv_msg_size_mib }}
+      http:
+        endpoint: {{ signoz_otel_otlp_http_endpoint }}
+  jaeger:
+    protocols:
+      grpc:
+        endpoint: {{ signoz_otel_jaeger_grpc_endpoint }}
+      thrift_http:
+        endpoint: {{ signoz_otel_jaeger_http_endpoint }}
+  httplogreceiver/heroku:
+    endpoint: {{ signoz_otel_heroku_endpoint }}
+    source: heroku
+  httplogreceiver/json:
+    endpoint: {{ signoz_otel_json_log_endpoint }}
+    source: json
+
+processors:
+  batch:
+    send_batch_size: {{ signoz_otel_batch_send_size }}
+    timeout: {{ signoz_otel_batch_timeout }}
+  signozspanmetrics/delta:
+    metrics_exporter: signozclickhousemetrics
+    latency_histogram_buckets: [{{ signoz_otel_spanmetrics_latency_buckets | join(', ') }}]
+    dimensions_cache_size: {{ signoz_otel_spanmetrics_dimensions_cache_size }}
+    dimensions:
+      - name: service.namespace
+        default: default
+      - name: deployment.environment
+        default: default
+      - name: signoz.collector.id
+    aggregation_temporality: AGGREGATION_TEMPORALITY_DELTA
+
+extensions:
+  health_check:
+    endpoint: {{ signoz_otel_health_check_endpoint }}
+  zpages:
+    endpoint: {{ signoz_otel_zpages_endpoint }}
+  pprof:
+    endpoint: {{ signoz_otel_pprof_endpoint }}
+
+exporters:
+  clickhousetraces:
+    datasource: {{ signoz_otel_clickhouse_traces_dsn }}
+    use_new_schema: true
+  signozclickhousemetrics:
+    dsn: {{ signoz_otel_clickhouse_metrics_dsn }}
+    timeout: {{ signoz_otel_metrics_exporter_timeout }}
+  clickhouselogsexporter:
+    dsn: {{ signoz_otel_clickhouse_logs_dsn }}
+    timeout: {{ signoz_otel_logs_exporter_timeout }}
+    use_new_schema: true
+  metadataexporter:
+    dsn: {{ signoz_otel_clickhouse_metadata_dsn }}
+    timeout: {{ signoz_otel_metadata_exporter_timeout }}
+    tenant_id: {{ signoz_otel_metadata_tenant_id }}
+    cache:
+      provider: in_memory
+
+service:
+  telemetry:
+    logs:
+      encoding: json
+  extensions: [health_check, zpages, pprof]
+  pipelines:
+    traces:
+      receivers: [otlp, jaeger]
+      processors: [signozspanmetrics/delta, batch]
+      exporters: [clickhousetraces, metadataexporter]
+    metrics:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [metadataexporter, signozclickhousemetrics]
+    logs:
+      receivers: [otlp, httplogreceiver/heroku, httplogreceiver/json]
+      processors: [batch]
+      exporters: [clickhouselogsexporter, metadataexporter]

@@ -1,0 +1,20 @@
+# Managed by Ansible - do not edit manually
+[Unit]
+Description=Apache ZooKeeper
+Documentation=http://zookeeper.apache.org
+After=network.target
+
+[Service]
+EnvironmentFile={{ zookeeper_install_dir }}/conf/zoo.env
+Type=forking
+WorkingDirectory={{ zookeeper_install_dir }}
+User={{ zookeeper_user }}
+Group={{ zookeeper_group }}
+ExecStart={{ zookeeper_install_dir }}/bin/zkServer.sh start {{ zookeeper_install_dir }}/conf/zoo.cfg
+ExecStop={{ zookeeper_install_dir }}/bin/zkServer.sh stop {{ zookeeper_install_dir }}/conf/zoo.cfg
+ExecReload={{ zookeeper_install_dir }}/bin/zkServer.sh restart {{ zookeeper_install_dir }}/conf/zoo.cfg
+TimeoutSec=30
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

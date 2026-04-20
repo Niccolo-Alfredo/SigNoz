@@ -1,0 +1,9 @@
+---
+- name: Deploy SigNoz observability stack
+  hosts: signoz
+  become: true
+  roles:
+    - role: zookeeper
+    - role: clickhouse
+    - role: signoz
+    - role: signoz_otel_collector

@@ -1,0 +1,21 @@
+# Managed by Ansible - do not edit manually
+[Unit]
+Description=SigNoz OTel Collector
+Documentation=https://signoz.io/docs
+After=clickhouse-server.service signoz.service
+Requires=clickhouse-server.service
+
+[Service]
+User={{ signoz_otel_user }}
+Group={{ signoz_otel_group }}
+Type=simple
+KillMode=mixed
+Restart=on-failure
+WorkingDirectory={{ signoz_otel_install_dir }}
+ExecStart={{ signoz_otel_install_dir }}/bin/signoz-otel-collector \
+  --config={{ signoz_otel_conf_dir }}/config.yaml \
+  --manager-config={{ signoz_otel_conf_dir }}/opamp.yaml \
+  --copy-path={{ signoz_otel_copy_path }}
+
+[Install]
+WantedBy=multi-user.target

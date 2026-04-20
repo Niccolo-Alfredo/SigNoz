@@ -1,0 +1,137 @@
+---
+- name: Install Java (OpenJDK)
+  ansible.builtin.dnf:
+    name: "{{ zookeeper_java_package }}"
+    state: present
+
+- name: Create zookeeper group
+  ansible.builtin.group:
+    name: "{{ zookeeper_group }}"
+    system: true
+    state: present
+
+- name: Create zookeeper user
+  ansible.builtin.user:
+    name: "{{ zookeeper_user }}"
+    group: "{{ zookeeper_group }}"
+    system: true
+    home: "{{ zookeeper_install_dir }}"
+    create_home: false
+    shell: /sbin/nologin
+    state: present
+
+- name: Create zookeeper directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ zookeeper_user }}"
+    group: "{{ zookeeper_group }}"
+    mode: "0755"
+  loop:
+    - "{{ zookeeper_install_dir }}"
+    - "{{ zookeeper_data_dir }}"
+    - "{{ zookeeper_log_dir }}"
+
+- name: Check if zookeeper binary already installed at the target version
+  ansible.builtin.stat:
+    path: "{{ zookeeper_install_dir }}/bin/zkServer.sh"
+  register: zookeeper_bin_stat
+
+- name: Read installed zookeeper version (if present)
+  ansible.builtin.slurp:
+    src: "{{ zookeeper_install_dir }}/VERSION"
+  register: zookeeper_installed_version_raw
+  when: zookeeper_bin_stat.stat.exists
+  failed_when: false
+
+- name: Set installed zookeeper version fact
+  ansible.builtin.set_fact:
+    zookeeper_installed_version: >-
+      {{
+        (zookeeper_installed_version_raw.content | b64decode | trim)
+        if (zookeeper_bin_stat.stat.exists and zookeeper_installed_version_raw.content is defined)
+        else ''
+      }}
+
+- name: Download zookeeper archive
+  ansible.builtin.get_url:
+    url: "{{ zookeeper_download_url }}"
+    dest: "/tmp/{{ zookeeper_archive_filename }}"
+    mode: "0644"
+  when: zookeeper_installed_version != zookeeper_version
+
+- name: Extract zookeeper archive
+  ansible.builtin.unarchive:
+    src: "/tmp/{{ zookeeper_archive_filename }}"
+    dest: /tmp
+    remote_src: true
+    creates: "/tmp/{{ zookeeper_extracted_dirname }}"
+  when: zookeeper_installed_version != zookeeper_version
+
+- name: Copy zookeeper files into install dir
+  ansible.builtin.copy:
+    src: "/tmp/{{ zookeeper_extracted_dirname }}/"
+    dest: "{{ zookeeper_install_dir }}/"
+    remote_src: true
+    owner: "{{ zookeeper_user }}"
+    group: "{{ zookeeper_group }}"
+    mode: preserve
+  when: zookeeper_installed_version != zookeeper_version
+  notify: Restart zookeeper
+
+- name: Write zookeeper VERSION marker
+  ansible.builtin.copy:
+    content: "{{ zookeeper_version }}"
+    dest: "{{ zookeeper_install_dir }}/VERSION"
+    owner: "{{ zookeeper_user }}"
+    group: "{{ zookeeper_group }}"
+    mode: "0644"
+  when: zookeeper_installed_version != zookeeper_version
+
+- name: Cleanup temporary extraction dir
+  ansible.builtin.file:
+    path: "/tmp/{{ zookeeper_extracted_dirname }}"
+    state: absent
+  when: zookeeper_installed_version != zookeeper_version
+
+- name: Cleanup downloaded archive
+  ansible.builtin.file:
+    path: "/tmp/{{ zookeeper_archive_filename }}"
+    state: absent
+  when: zookeeper_installed_version != zookeeper_version
+
+- name: Deploy zoo.cfg
+  ansible.builtin.template:
+    src: zoo.cfg.j2
+    dest: "{{ zookeeper_install_dir }}/conf/zoo.cfg"
+    owner: "{{ zookeeper_user }}"
+    group: "{{ zookeeper_group }}"
+    mode: "0644"
+  notify: Restart zookeeper
+
+- name: Deploy zoo.env
+  ansible.builtin.template:
+    src: zoo.env.j2
+    dest: "{{ zookeeper_install_dir }}/conf/zoo.env"
+    owner: "{{ zookeeper_user }}"
+    group: "{{ zookeeper_group }}"
+    mode: "0644"
+  notify: Restart zookeeper
+
+- name: Deploy zookeeper systemd unit
+  ansible.builtin.template:
+    src: zookeeper.service.j2
+    dest: /etc/systemd/system/zookeeper.service
+    owner: root
+    group: root
+    mode: "0644"
+  notify:
+    - Reload systemd
+    - Restart zookeeper
+
+- name: Enable and start zookeeper
+  ansible.builtin.systemd:
+    name: zookeeper.service
+    enabled: true
+    state: started
+    daemon_reload: true

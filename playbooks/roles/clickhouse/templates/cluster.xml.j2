@@ -1,0 +1,27 @@
+<?xml version="1.0"?>
+<!-- Managed by Ansible - do not edit manually -->
+<clickhouse replace="true">
+    <distributed_ddl>
+        <path>/clickhouse/task_queue/ddl</path>
+    </distributed_ddl>
+    <remote_servers>
+        <{{ clickhouse_cluster_name }}>
+            <shard>
+                <replica>
+                    <host>{{ clickhouse_remote_host }}</host>
+                    <port>{{ clickhouse_remote_port }}</port>
+                </replica>
+            </shard>
+        </{{ clickhouse_cluster_name }}>
+    </remote_servers>
+    <zookeeper>
+        <node>
+            <host>{{ clickhouse_zookeeper_host }}</host>
+            <port>{{ clickhouse_zookeeper_port }}</port>
+        </node>
+    </zookeeper>
+    <macros>
+        <shard>{{ clickhouse_shard }}</shard>
+        <replica>{{ clickhouse_replica }}</replica>
+    </macros>
+</clickhouse>

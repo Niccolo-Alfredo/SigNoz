@@ -1,6 +1,0 @@
----
-- name: Test role - clickhouse
-  hosts: signoz
-  become: true
-  roles:
-  - role: clickhouse

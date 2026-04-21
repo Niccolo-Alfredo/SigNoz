@@ -1,8 +1,8 @@
 ---
 # =============================================================================
 # SigNoz Stack - Group Variables
-# Single source of truth per tutte le variabili dello stack.
-# I ruoli referenziano queste variabili nei propri defaults/main.yml.
+# Fonte di controllo centralizzata per l'intero stack.
+# TODO: spostare le credenziali in ansible-vault.
 # =============================================================================
 
 # -----------------------------------------------------------------------------
@@ -17,17 +17,14 @@ zookeeper_group: zookeeper
 zookeeper_client_port: 2181
 zookeeper_admin_port: 3181
 zookeeper_tick_time: 2000
-zookeeper_java_package: java-17-openjdk-headless
 
 # -----------------------------------------------------------------------------
 # ClickHouse
+# Da capire se portare alla 26.x LTS o rimanere alla 25.x.
 # -----------------------------------------------------------------------------
-# Version pinning
-# Pinned to 25.8 LTS - latest signed and stable LTS release.
-# The 26.x packages in the LTS channel are currently unsigned (known upstream issue).
-# Set to "" to use latest in channel (not recommended until signing is fixed upstream).
 clickhouse_version: "25.8.22.28"
-clickhouse_password: "password" # TODO: spostare in ansible-vault
+clickhouse_repo_channel: "lts"
+clickhouse_password: "password"         # TODO: ansible-vault
 clickhouse_cluster_name: cluster
 clickhouse_shard: "01"
 clickhouse_replica: "01"
@@ -35,26 +32,26 @@ clickhouse_zookeeper_host: 127.0.0.1
 clickhouse_zookeeper_port: "{{ zookeeper_client_port }}"
 clickhouse_remote_host: 127.0.0.1
 clickhouse_remote_port: 9000
+clickhouse_keep_free_space_bytes: 21474836480  # 20GB su 950GB disco
 
 # -----------------------------------------------------------------------------
 # SigNoz
+# Pinnare le versioni prima della promozione in produzione.
 # -----------------------------------------------------------------------------
-signoz_version: "latest" # es. "v0.79.0" per pinnare
+signoz_version: "latest"
 signoz_otel_collector_version: "latest"
 signoz_install_dir: /opt/signoz
 signoz_data_dir: /var/lib/signoz
 signoz_user: signoz
 signoz_group: signoz
 signoz_api_port: 8080
-signoz_jwt_secret: "secret"
+signoz_jwt_secret: "secret"             # TODO: ansible-vault
 signoz_alertmanager_provider: signoz
 signoz_telemetrystore_provider: clickhouse
 signoz_dot_metrics_enabled: true
 signoz_instrumentation_logs_level: info
 signoz_web_enabled: true
 signoz_run_migrations: true
-
-# DSN derivato dalla password ClickHouse (single source of truth)
 signoz_clickhouse_dsn: "tcp://localhost:{{ clickhouse_remote_port }}?password={{ clickhouse_password }}"
 
 # -----------------------------------------------------------------------------
@@ -65,9 +62,7 @@ signoz_otel_data_dir: /var/lib/signoz-otel-collector
 signoz_otel_user: "{{ signoz_user }}"
 signoz_otel_group: "{{ signoz_group }}"
 signoz_otel_opamp_server_endpoint: "ws://127.0.0.1:4320/v1/opamp"
-
-# DSN per dominio telemetry (derivati da clickhouse_password)
-signoz_otel_clickhouse_traces_dsn: "tcp://localhost:{{ clickhouse_remote_port }}/signoz_traces?password={{ clickhouse_password }}"
-signoz_otel_clickhouse_metrics_dsn: "tcp://localhost:{{ clickhouse_remote_port }}/signoz_metrics?password={{ clickhouse_password }}"
-signoz_otel_clickhouse_logs_dsn: "tcp://localhost:{{ clickhouse_remote_port }}/signoz_logs?password={{ clickhouse_password }}"
+signoz_otel_clickhouse_traces_dsn:   "tcp://localhost:{{ clickhouse_remote_port }}/signoz_traces?password={{ clickhouse_password }}"
+signoz_otel_clickhouse_metrics_dsn:  "tcp://localhost:{{ clickhouse_remote_port }}/signoz_metrics?password={{ clickhouse_password }}"
+signoz_otel_clickhouse_logs_dsn:     "tcp://localhost:{{ clickhouse_remote_port }}/signoz_logs?password={{ clickhouse_password }}"
 signoz_otel_clickhouse_metadata_dsn: "tcp://localhost:{{ clickhouse_remote_port }}/signoz_metadata?password={{ clickhouse_password }}"

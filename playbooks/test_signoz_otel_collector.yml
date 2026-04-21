@@ -1,6 +1,0 @@
----
-- name: Test role - signoz_otel_collector
-  hosts: signoz
-  become: true
-  roles:
-  - role: signoz_otel_collector

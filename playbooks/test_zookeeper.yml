@@ -1,6 +1,0 @@
----
-- name: Test role - zookeeper
-  hosts: signoz
-  become: true
-  roles:
-  - role: zookeeper

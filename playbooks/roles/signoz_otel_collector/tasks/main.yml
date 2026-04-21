@@ -7,6 +7,7 @@
     name: "{{ signoz_otel_group }}"
     system: true
     state: present
+  tags: [signoz_otel_collector, install]
 
 - name: Check if signoz user already exists
   ansible.builtin.getent:
@@ -14,6 +15,7 @@
     key: "{{ signoz_otel_user }}"
   register: signoz_otel_user_check
   failed_when: false
+  tags: [signoz_otel_collector, install]
 
 - name: Create signoz user if not present
   ansible.builtin.user:
@@ -25,6 +27,7 @@
     shell: /sbin/nologin
     state: present
   when: signoz_otel_user_check.ansible_facts is not defined
+  tags: [signoz_otel_collector, install]
 
 - name: Create signoz-otel-collector directories
   ansible.builtin.file:
@@ -37,10 +40,10 @@
     - "{{ signoz_otel_install_dir }}"
     - "{{ signoz_otel_data_dir }}"
     - "{{ signoz_otel_conf_dir }}"
+  tags: [signoz_otel_collector, install]
 
 # -----------------------------------------------------------------------------
 # Binary install
-# SELinux restorecon is conditioned on the copy task actually running.
 # -----------------------------------------------------------------------------
 - name: Download signoz-otel-collector archive
   ansible.builtin.get_url:
@@ -48,12 +51,14 @@
     dest: "/tmp/signoz-otel-collector.tar.gz"
     mode: "0644"
     force: "{{ signoz_otel_collector_version == 'latest' }}"
+  tags: [signoz_otel_collector, install]
 
 - name: Extract signoz-otel-collector archive
   ansible.builtin.unarchive:
     src: "/tmp/signoz-otel-collector.tar.gz"
     dest: /tmp
     remote_src: true
+  tags: [signoz_otel_collector, install]
 
 - name: Copy signoz-otel-collector files into install dir
   ansible.builtin.copy:
@@ -65,22 +70,26 @@
     mode: preserve
   register: signoz_otel_copy_result
   notify: Restart signoz-otel-collector
+  tags: [signoz_otel_collector, install]
 
 - name: Restore SELinux context on signoz-otel-collector install dir
   ansible.builtin.command:
     cmd: restorecon -Rv {{ signoz_otel_install_dir }}
   changed_when: false
   when: signoz_otel_copy_result.changed
+  tags: [signoz_otel_collector, install]
 
 - name: Cleanup signoz-otel-collector temp extraction dir
   ansible.builtin.file:
     path: "/tmp/{{ signoz_otel_extracted_dirname }}"
     state: absent
+  tags: [signoz_otel_collector, install]
 
 - name: Cleanup signoz-otel-collector archive
   ansible.builtin.file:
     path: "/tmp/signoz-otel-collector.tar.gz"
     state: absent
+  tags: [signoz_otel_collector, install]
 
 # -----------------------------------------------------------------------------
 # Configuration
@@ -93,6 +102,7 @@
     group: "{{ signoz_otel_group }}"
     mode: "0640"
   notify: Restart signoz-otel-collector
+  tags: [signoz_otel_collector, configure]
 
 - name: Deploy collector opamp.yaml
   ansible.builtin.template:
@@ -102,6 +112,7 @@
     group: "{{ signoz_otel_group }}"
     mode: "0640"
   notify: Restart signoz-otel-collector
+  tags: [signoz_otel_collector, configure]
 
 - name: Deploy signoz-otel-collector systemd unit
   ansible.builtin.template:
@@ -113,6 +124,7 @@
   notify:
     - Reload systemd
     - Restart signoz-otel-collector
+  tags: [signoz_otel_collector, configure, service]
 
 # -----------------------------------------------------------------------------
 # Service
@@ -123,6 +135,7 @@
     enabled: true
     state: started
     daemon_reload: true
+  tags: [signoz_otel_collector, service]
 
 # -----------------------------------------------------------------------------
 # Verification
@@ -131,6 +144,7 @@
   ansible.builtin.systemd:
     name: signoz-otel-collector.service
   register: signoz_otel_service_status
+  tags: [signoz_otel_collector, verify]
 
 - name: Assert signoz-otel-collector service is active
   ansible.builtin.assert:
@@ -142,6 +156,7 @@
       ActiveState={{ signoz_otel_service_status.status.ActiveState }}
       SubState={{ signoz_otel_service_status.status.SubState }}
     success_msg: "signoz-otel-collector.service is active and running"
+  tags: [signoz_otel_collector, verify]
 
 - name: Wait for collector health endpoint to be ready
   ansible.builtin.wait_for:
@@ -149,6 +164,7 @@
     port: "{{ signoz_otel_health_check_port }}"
     delay: 2
     timeout: 60
+  tags: [signoz_otel_collector, verify]
 
 - name: Verify collector health endpoint
   ansible.builtin.uri:
@@ -159,3 +175,4 @@
   retries: 5
   delay: 3
   until: signoz_otel_health.status == 200
+  tags: [signoz_otel_collector, verify]

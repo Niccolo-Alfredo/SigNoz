@@ -1,17 +1,19 @@
 ---
 # -----------------------------------------------------------------------------
-# Swap - disabilitazione raccomandata da ClickHouse per ambienti di produzione
+# Swap
 # -----------------------------------------------------------------------------
 - name: Disable swap immediately
   ansible.builtin.command:
     cmd: swapoff -a
   changed_when: false
+  tags: [clickhouse, install]
 
 - name: Disable swap permanently (remove from /etc/fstab)
   ansible.builtin.replace:
     path: /etc/fstab
     regexp: '^([^#].*\s+swap\s+.*)$'
     replace: '# \1'
+  tags: [clickhouse, install]
 
 # -----------------------------------------------------------------------------
 # Repository
@@ -20,6 +22,7 @@
   ansible.builtin.dnf:
     name: yum-utils
     state: present
+  tags: [clickhouse, install]
 
 - name: Import official ClickHouse repo file
   ansible.builtin.get_url:
@@ -27,6 +30,7 @@
     dest: /etc/yum.repos.d/clickhouse.repo
     mode: "0644"
     force: false
+  tags: [clickhouse, install]
 
 - name: Enable only the {{ clickhouse_repo_channel }} channel, disable the other
   ansible.builtin.ini_file:
@@ -40,6 +44,7 @@
       enabled: "{{ '1' if clickhouse_repo_channel == 'stable' else '0' }}"
     - section: clickhouse-lts
       enabled: "{{ '1' if clickhouse_repo_channel == 'lts' else '0' }}"
+  tags: [clickhouse, install]
 
 # -----------------------------------------------------------------------------
 # Install
@@ -56,6 +61,7 @@
     # GPG check disabled: ClickHouse RPM packages in the LTS channel are currently
     # unsigned upstream (known issue as of 2026). Re-enable once signing is restored.
     disable_gpg_check: true
+  tags: [clickhouse, install]
 
 # -----------------------------------------------------------------------------
 # Directories
@@ -70,6 +76,7 @@
   loop:
     - "{{ clickhouse_config_dir }}"
     - "{{ clickhouse_users_dir }}"
+  tags: [clickhouse, install]
 
 # -----------------------------------------------------------------------------
 # Configuration
@@ -82,6 +89,7 @@
     group: "{{ clickhouse_group }}"
     mode: "0640"
   notify: Restart clickhouse-server
+  tags: [clickhouse, configure]
 
 - name: Deploy default user password override
   ansible.builtin.template:
@@ -91,6 +99,7 @@
     group: "{{ clickhouse_group }}"
     mode: "0640"
   notify: Restart clickhouse-server
+  tags: [clickhouse, configure]
 
 - name: Deploy storage.xml (keep_free_space_bytes)
   ansible.builtin.template:
@@ -100,10 +109,10 @@
     group: "{{ clickhouse_group }}"
     mode: "0640"
   notify: Restart clickhouse-server
+  tags: [clickhouse, configure]
 
 # -----------------------------------------------------------------------------
-# Systemd drop-in: After=zookeeper.service
-# Extends the unit installed by the RPM without modifying it directly.
+# Systemd drop-in
 # -----------------------------------------------------------------------------
 - name: Create clickhouse-server systemd drop-in directory
   ansible.builtin.file:
@@ -112,6 +121,7 @@
     owner: root
     group: root
     mode: "0755"
+  tags: [clickhouse, configure, service]
 
 - name: Deploy clickhouse-server systemd drop-in (After=zookeeper.service)
   ansible.builtin.copy:
@@ -127,6 +137,7 @@
   notify:
     - Reload systemd
     - Restart clickhouse-server
+  tags: [clickhouse, configure, service]
 
 # -----------------------------------------------------------------------------
 # Service
@@ -137,6 +148,7 @@
     enabled: true
     state: started
     daemon_reload: true
+  tags: [clickhouse, service]
 
 - name: Wait for ClickHouse to be ready on port 9000
   ansible.builtin.wait_for:
@@ -144,6 +156,7 @@
     port: "{{ clickhouse_remote_port }}"
     delay: 2
     timeout: 60
+  tags: [clickhouse, service]
 
 # -----------------------------------------------------------------------------
 # Verification
@@ -152,6 +165,7 @@
   ansible.builtin.systemd:
     name: clickhouse-server.service
   register: clickhouse_service_status
+  tags: [clickhouse, verify]
 
 - name: Assert clickhouse-server service is active
   ansible.builtin.assert:
@@ -163,6 +177,7 @@
       ActiveState={{ clickhouse_service_status.status.ActiveState }}
       SubState={{ clickhouse_service_status.status.SubState }}
     success_msg: "clickhouse-server.service is active and running"
+  tags: [clickhouse, verify]
 
 - name: Verify ClickHouse responds to a test query
   ansible.builtin.command:
@@ -174,3 +189,4 @@
   changed_when: false
   failed_when: clickhouse_query_check.stdout | trim != '1'
   no_log: true
+  tags: [clickhouse, verify]

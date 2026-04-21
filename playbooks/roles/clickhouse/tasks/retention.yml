@@ -1,0 +1,188 @@
+---
+# =============================================================================
+# ClickHouse TTL / Retention
+#
+# Meccanismi usati:
+# - MODIFY TTL: traces, metrics e tabelle ancillari con TTL fissa in secondi
+# - MODIFY COLUMN _retention_days DEFAULT: logs_v2 e logs_v2_resource
+#   (stesso meccanismo usato dalla UI SigNoz, non usare MODIFY TTL su queste)
+#
+# Idempotente: MODIFY TTL e MODIFY COLUMN sovrascrivono silenziosamente.
+# La TTL si applica solo ai dati ingeriti dopo la modifica.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Traces — TTL su colonna timestamp
+# -----------------------------------------------------------------------------
+- name: Set TTL for signoz_traces tables (timestamp column)
+  ansible.builtin.command:
+    cmd: >-
+      clickhouse-client --password {{ clickhouse_password }}
+      --query "ALTER TABLE {{ item }}
+               MODIFY TTL toDateTime(timestamp) + toIntervalDay({{ signoz_retention_traces_days }})"
+  loop:
+    - signoz_traces.signoz_index_v3
+    - signoz_traces.signoz_index_v2
+    - signoz_traces.durationSort
+    - signoz_traces.signoz_error_index_v2
+    - signoz_traces.signoz_spans
+    - signoz_traces.dependency_graph_minutes_v2
+    - signoz_traces.span_attributes
+    - signoz_traces.usage_explorer
+  changed_when: false
+  no_log: true
+  tags: [clickhouse, retention]
+
+- name: Set TTL for signoz_traces.trace_summary (end column)
+  ansible.builtin.command:
+    cmd: >-
+      clickhouse-client --password {{ clickhouse_password }}
+      --query "ALTER TABLE signoz_traces.trace_summary
+               MODIFY TTL toDateTime(end) + toIntervalDay({{ signoz_retention_traces_days }})"
+  changed_when: false
+  no_log: true
+  tags: [clickhouse, retention]
+
+- name: Set TTL for signoz_traces.traces_v3_resource (seen_at_ts_bucket_start + 30min buffer)
+  ansible.builtin.command:
+    cmd: >-
+      clickhouse-client --password {{ clickhouse_password }}
+      --query "ALTER TABLE signoz_traces.traces_v3_resource
+               MODIFY TTL (toDateTime(seen_at_ts_bucket_start) + toIntervalDay({{ signoz_retention_traces_days }})) + toIntervalSecond(1800)"
+  changed_when: false
+  no_log: true
+  tags: [clickhouse, retention]
+
+- name: Set TTL for signoz_traces tables (unix_milli column)
+  ansible.builtin.command:
+    cmd: >-
+      clickhouse-client --password {{ clickhouse_password }}
+      --query "ALTER TABLE {{ item }}
+               MODIFY TTL toDateTime(unix_milli / 1000) + toIntervalDay({{ signoz_retention_traces_days }})"
+  loop:
+    - signoz_traces.tag_attributes_v2
+  changed_when: false
+  no_log: true
+  tags: [clickhouse, retention]
+
+# -----------------------------------------------------------------------------
+# Logs — MODIFY COLUMN _retention_days (stesso meccanismo della UI SigNoz)
+# -----------------------------------------------------------------------------
+- name: Set _retention_days default for signoz_logs tables
+  ansible.builtin.command:
+    cmd: >-
+      clickhouse-client --password {{ clickhouse_password }}
+      --query "ALTER TABLE {{ item }}
+               MODIFY COLUMN _retention_days DEFAULT {{ signoz_retention_logs_days }}"
+  loop:
+    - signoz_logs.logs_v2
+    - signoz_logs.logs_v2_resource
+    - signoz_logs.distributed_logs_v2
+    - signoz_logs.distributed_logs_v2_resource
+  changed_when: false
+  no_log: true
+  tags: [clickhouse, retention]
+
+- name: Set TTL for signoz_logs tables (timestamp column)
+  ansible.builtin.command:
+    cmd: >-
+      clickhouse-client --password {{ clickhouse_password }}
+      --query "ALTER TABLE {{ item }}
+               MODIFY TTL timestamp + toIntervalDay({{ signoz_retention_logs_days }})"
+  loop:
+    - signoz_logs.logs_attribute_keys
+    - signoz_logs.logs_resource_keys
+  changed_when: false
+  no_log: true
+  tags: [clickhouse, retention]
+
+- name: Set TTL for signoz_logs tables (unix_milli column)
+  ansible.builtin.command:
+    cmd: >-
+      clickhouse-client --password {{ clickhouse_password }}
+      --query "ALTER TABLE {{ item }}
+               MODIFY TTL toDateTime(unix_milli / 1000) + toIntervalDay({{ signoz_retention_logs_days }})"
+  loop:
+    - signoz_logs.tag_attributes_v2
+  changed_when: false
+  no_log: true
+  tags: [clickhouse, retention]
+
+# -----------------------------------------------------------------------------
+# Metrics — TTL su colonna unix_milli
+# -----------------------------------------------------------------------------
+- name: Set TTL for signoz_metrics tables (unix_milli column)
+  ansible.builtin.command:
+    cmd: >-
+      clickhouse-client --password {{ clickhouse_password }}
+      --query "ALTER TABLE {{ item }}
+               MODIFY TTL toDateTime(unix_milli / 1000) + toIntervalDay({{ signoz_retention_metrics_days }})"
+  loop:
+    - signoz_metrics.samples_v4
+    - signoz_metrics.samples_v4_agg_5m
+    - signoz_metrics.samples_v4_agg_30m
+    - signoz_metrics.exp_hist
+    - signoz_metrics.time_series_v4
+    - signoz_metrics.time_series_v4_6hrs
+    - signoz_metrics.time_series_v4_1day
+    - signoz_metrics.time_series_v4_1week
+  changed_when: false
+  no_log: true
+  tags: [clickhouse, retention]
+
+- name: Set TTL for signoz_metrics.samples_v2 (timestamp_ms column)
+  ansible.builtin.command:
+    cmd: >-
+      clickhouse-client --password {{ clickhouse_password }}
+      --query "ALTER TABLE signoz_metrics.samples_v2
+               MODIFY TTL toDateTime(timestamp_ms / 1000) + toIntervalDay({{ signoz_retention_metrics_days }})"
+  changed_when: false
+  no_log: true
+  tags: [clickhouse, retention]
+
+- name: Set TTL for signoz_metrics.metadata (last_reported_unix_milli column)
+  ansible.builtin.command:
+    cmd: >-
+      clickhouse-client --password {{ clickhouse_password }}
+      --query "ALTER TABLE signoz_metrics.metadata
+               MODIFY TTL toDateTime(last_reported_unix_milli / 1000) + toIntervalDay({{ signoz_retention_metrics_days }})"
+  changed_when: false
+  no_log: true
+  tags: [clickhouse, retention]
+
+# -----------------------------------------------------------------------------
+# ClickHouse system logs (log interni del motore — non dati applicativi)
+# -----------------------------------------------------------------------------
+- name: Set TTL for ClickHouse system log tables (event_date column)
+  ansible.builtin.command:
+    cmd: >-
+      clickhouse-client --password {{ clickhouse_password }}
+      --query "ALTER TABLE {{ item }}
+               MODIFY TTL event_date + toIntervalDay({{ signoz_retention_system_logs_days }})"
+  loop:
+    - system.query_log
+    - system.metric_log
+    - system.asynchronous_metric_log
+    - system.text_log
+    - system.trace_log
+    - system.part_log
+    - system.error_log
+    - system.processors_profile_log
+    - system.asynchronous_insert_log
+    - system.crash_log
+  changed_when: false
+  no_log: true
+  tags: [clickhouse, retention]
+
+# -----------------------------------------------------------------------------
+# Attiva il motore TTL merges
+# -----------------------------------------------------------------------------
+- name: Start TTL merges engine
+  ansible.builtin.command:
+    cmd: >-
+      clickhouse-client --password {{ clickhouse_password }}
+      --query "SYSTEM START TTL MERGES"
+  changed_when: false
+  no_log: true
+  when: clickhouse_start_ttl_merges | bool
+  tags: [clickhouse, clickhouse_retention]

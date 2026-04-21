@@ -151,6 +151,16 @@
   tags: [clickhouse, service, clickhouse_service]
 
 # -----------------------------------------------------------------------------
+# Retention (TTL)
+# -----------------------------------------------------------------------------
+- name: Apply ClickHouse retention policies
+  ansible.builtin.include_tasks:
+    file: retention.yml
+    apply:
+      tags: [clickhouse, clickhouse_retention]
+  tags: [clickhouse, clickhouse_retention]
+
+# -----------------------------------------------------------------------------
 # Flush handlers prima della verifica
 # Garantisce che restart/reload siano completati prima dei check.
 # -----------------------------------------------------------------------------

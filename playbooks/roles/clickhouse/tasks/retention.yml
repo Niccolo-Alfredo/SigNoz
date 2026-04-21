@@ -28,6 +28,7 @@
     - signoz_traces.signoz_spans
     - signoz_traces.dependency_graph_minutes_v2
     - signoz_traces.span_attributes
+    - signoz_traces.span_attributes_keys
     - signoz_traces.usage_explorer
   changed_when: false
   no_log: true

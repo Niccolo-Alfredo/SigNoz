@@ -1,23 +1,49 @@
 ---
-- name: Debug ClickHouse version
-  debug:
-    msg: "La versione selezionata è {{ clickhouse_version }}"
+# -----------------------------------------------------------------------------
+# Swap - disabilitazione raccomandata da ClickHouse per ambienti di produzione
+# -----------------------------------------------------------------------------
+- name: Disable swap immediately
+  ansible.builtin.command:
+    cmd: swapoff -a
+  changed_when: false
 
+- name: Disable swap permanently (remove from /etc/fstab)
+  ansible.builtin.replace:
+    path: /etc/fstab
+    regexp: '^([^#].*\s+swap\s+.*)$'
+    replace: '# \1'
+
+# -----------------------------------------------------------------------------
+# Repository
+# -----------------------------------------------------------------------------
 - name: Install yum-utils
   ansible.builtin.dnf:
     name: yum-utils
     state: present
 
-- name: Add ClickHouse RPM repository ({{ clickhouse_repo_channel }})
-  ansible.builtin.yum_repository:
-    name: "clickhouse-{{ clickhouse_repo_channel }}"
-    description: "ClickHouse - {{ clickhouse_repo_channel | capitalize }} Repository"
-    baseurl: "https://packages.clickhouse.com/rpm/{{ clickhouse_repo_channel }}/"
-    gpgkey: "https://packages.clickhouse.com/rpm/{{ clickhouse_repo_channel }}/repodata/repomd.xml.key"
-    gpgcheck: true
-    enabled: true
-    state: present
+- name: Import official ClickHouse repo file
+  ansible.builtin.get_url:
+    url: "https://packages.clickhouse.com/rpm/clickhouse.repo"
+    dest: /etc/yum.repos.d/clickhouse.repo
+    mode: "0644"
+    force: false
 
+- name: Enable only the {{ clickhouse_repo_channel }} channel, disable the other
+  ansible.builtin.ini_file:
+    path: /etc/yum.repos.d/clickhouse.repo
+    section: "{{ item.section }}"
+    option: enabled
+    value: "{{ item.enabled }}"
+    mode: "0644"
+  loop:
+    - section: clickhouse-stable
+      enabled: "{{ '1' if clickhouse_repo_channel == 'stable' else '0' }}"
+    - section: clickhouse-lts
+      enabled: "{{ '1' if clickhouse_repo_channel == 'lts' else '0' }}"
+
+# -----------------------------------------------------------------------------
+# Install
+# -----------------------------------------------------------------------------
 - name: Install ClickHouse packages
   ansible.builtin.dnf:
     name: >-
@@ -27,8 +53,10 @@
         else (clickhouse_packages | map('regex_replace', '$', '-' ~ clickhouse_version) | list)
       }}
     state: present
-    disable_gpg_check: true
 
+# -----------------------------------------------------------------------------
+# Directories
+# -----------------------------------------------------------------------------
 - name: Ensure ClickHouse config directories exist
   ansible.builtin.file:
     path: "{{ item }}"
@@ -37,9 +65,12 @@
     group: "{{ clickhouse_group }}"
     mode: "0750"
   loop:
-  - "{{ clickhouse_config_dir }}"
-  - "{{ clickhouse_users_dir }}"
+    - "{{ clickhouse_config_dir }}"
+    - "{{ clickhouse_users_dir }}"
 
+# -----------------------------------------------------------------------------
+# Configuration
+# -----------------------------------------------------------------------------
 - name: Deploy cluster.xml (Zookeeper + replication config)
   ansible.builtin.template:
     src: cluster.xml.j2
@@ -58,6 +89,18 @@
     mode: "0640"
   notify: Restart clickhouse-server
 
+- name: Deploy storage.xml (keep_free_space_bytes)
+  ansible.builtin.template:
+    src: storage.xml.j2
+    dest: "{{ clickhouse_config_dir }}/storage.xml"
+    owner: "{{ clickhouse_user }}"
+    group: "{{ clickhouse_group }}"
+    mode: "0640"
+  notify: Restart clickhouse-server
+
+# -----------------------------------------------------------------------------
+# Service
+# -----------------------------------------------------------------------------
 - name: Enable and start clickhouse-server
   ansible.builtin.systemd:
     name: clickhouse-server.service

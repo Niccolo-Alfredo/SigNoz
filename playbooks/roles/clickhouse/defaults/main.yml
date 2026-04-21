@@ -1,17 +1,15 @@
 ---
 # Version pinning
-# Pinned to 25.8 LTS - latest signed and stable LTS release.
-# The 26.x packages in the LTS channel are currently unsigned (known upstream issue).
-# Set to "" to use latest in channel (not recommended until signing is fixed upstream).
+# Set to a specific version like "25.8.22.28" to pin, or leave empty for latest in channel
 clickhouse_version: "25.8.22.28"
 
-# Repository channel: "lts" for Long Term Support, "stable" for latest stable
+# Repository channel: "lts" or "stable"
 clickhouse_repo_channel: "lts"
 
 # Packages
 clickhouse_packages:
-- clickhouse-server
-- clickhouse-client
+  - clickhouse-server
+  - clickhouse-client
 
 # Database credentials
 # NOTE: staging/prod internal password. To be moved to ansible-vault.
@@ -26,14 +24,18 @@ clickhouse_cluster_name: cluster
 clickhouse_shard: "01"
 clickhouse_replica: "01"
 
-# Zookeeper connection (defaults to local instance from zookeeper role)
+# Zookeeper connection
 clickhouse_zookeeper_host: 127.0.0.1
 clickhouse_zookeeper_port: 2181
 
-# Internal remote server
+# Ports
 clickhouse_remote_host: 127.0.0.1
 clickhouse_remote_port: 9000
 
 # System user (created by RPM package)
 clickhouse_user: clickhouse
 clickhouse_group: clickhouse
+
+# Storage: minimum free space to keep on the default disk.
+# 20GB = 21474836480 bytes. Adjust based on available disk.
+clickhouse_keep_free_space_bytes: 21474836480

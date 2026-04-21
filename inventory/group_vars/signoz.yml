@@ -52,7 +52,7 @@ signoz_telemetrystore_provider: clickhouse
 signoz_dot_metrics_enabled: true
 signoz_instrumentation_logs_level: info
 signoz_web_enabled: true
-signoz_run_migrations: false
+signoz_run_migrations: true
 
 # DSN derivato dalla password ClickHouse (single source of truth)
 signoz_clickhouse_dsn: "tcp://localhost:{{ clickhouse_remote_port }}?password={{ clickhouse_password }}"

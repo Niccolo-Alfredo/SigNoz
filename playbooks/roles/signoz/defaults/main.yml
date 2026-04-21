@@ -1,40 +1,71 @@
 ---
+# -----------------------------------------------------------------------------
 # Versions
-# Set to a specific version like "v0.79.0" to pin, or "latest" for the latest release
+# SigNoz and signoz-otel-collector share the same release cadence —
+# always keep these two versions aligned.
+# Use "latest" to always pull the latest release, or pin to a specific
+# version tag (e.g. "v0.79.0") for reproducible deployments.
+# -----------------------------------------------------------------------------
 signoz_version: "latest"
-# Must match the signoz_otel_collector role version (same release cadence)
 signoz_otel_collector_version: "latest"
 
+# -----------------------------------------------------------------------------
 # Paths
+# -----------------------------------------------------------------------------
 signoz_install_dir: /opt/signoz
 signoz_data_dir: /var/lib/signoz
+signoz_conf_dir: "{{ signoz_install_dir }}/conf"
 
-# Temporary collector download (used only for migrations)
+# Temporary directory used only during migrations — cleaned up afterwards
 signoz_migrations_tmp_dir: /tmp/signoz-migrations
 
-# User/group
+# -----------------------------------------------------------------------------
+# User / Group
+# -----------------------------------------------------------------------------
 signoz_user: signoz
 signoz_group: signoz
 
-# Service configuration
+# -----------------------------------------------------------------------------
+# Service
+# -----------------------------------------------------------------------------
 signoz_api_port: 8080
-signoz_jwt_secret: "secret"
 signoz_alertmanager_provider: signoz
 signoz_telemetrystore_provider: clickhouse
 signoz_dot_metrics_enabled: true
 signoz_instrumentation_logs_level: info
 signoz_web_enabled: true
 
-# ClickHouse DSN (overridden from group_vars to align with clickhouse role)
+# -----------------------------------------------------------------------------
+# Credentials
+# TODO: move to ansible-vault before production rollout
+# -----------------------------------------------------------------------------
+signoz_jwt_secret: "secret"
+
+# ClickHouse DSN — references clickhouse_password from clickhouse role defaults
+# or group_vars/signoz.yml (single source of truth for the password)
 signoz_clickhouse_dsn: "tcp://localhost:9000?password={{ clickhouse_password }}"
 
+# -----------------------------------------------------------------------------
+# Migrations
+# Migrations are idempotent — safe to run on every playbook execution.
+# Set to false only to explicitly skip (e.g. on a known-good re-run for speed).
+# -----------------------------------------------------------------------------
+signoz_run_migrations: true
+
+# -----------------------------------------------------------------------------
 # Architecture detection
+# Maps uname -m output to the GitHub release asset naming convention.
+# -----------------------------------------------------------------------------
 signoz_arch_map:
   x86_64: amd64
   aarch64: arm64
 signoz_arch: "{{ signoz_arch_map[ansible_architecture] }}"
 
+# -----------------------------------------------------------------------------
 # Download URLs
+# Derived automatically from version and architecture — do not override unless
+# you need to point to a custom mirror or a pre-release asset.
+# -----------------------------------------------------------------------------
 signoz_download_url: >-
   {{
     'https://github.com/SigNoz/signoz/releases/latest/download/signoz_linux_' ~ signoz_arch ~ '.tar.gz'
@@ -50,6 +81,3 @@ signoz_otel_collector_download_url: >-
     else 'https://github.com/SigNoz/signoz-otel-collector/releases/download/' ~ signoz_otel_collector_version ~ '/signoz-otel-collector_linux_' ~ signoz_arch ~ '.tar.gz'
   }}
 signoz_otel_collector_extracted_dirname: "signoz-otel-collector_linux_{{ signoz_arch }}"
-
-# Migrations control
-signoz_run_migrations: true

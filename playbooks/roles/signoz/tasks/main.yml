@@ -1,4 +1,7 @@
 ---
+# -----------------------------------------------------------------------------
+# User / Group / Directories
+# -----------------------------------------------------------------------------
 - name: Create signoz group
   ansible.builtin.group:
     name: "{{ signoz_group }}"
@@ -31,9 +34,15 @@
     group: "{{ signoz_group }}"
     mode: "0755"
   loop:
-  - "{{ signoz_install_dir }}"
-  - "{{ signoz_data_dir }}"
+    - "{{ signoz_install_dir }}"
+    - "{{ signoz_data_dir }}"
+    - "{{ signoz_conf_dir }}"
 
+# -----------------------------------------------------------------------------
+# Binary install
+# Download and copy only when version changes or on first install.
+# SELinux restorecon is conditioned on the copy task actually running.
+# -----------------------------------------------------------------------------
 - name: Download signoz archive
   ansible.builtin.get_url:
     url: "{{ signoz_download_url }}"
@@ -55,12 +64,14 @@
     owner: "{{ signoz_user }}"
     group: "{{ signoz_group }}"
     mode: preserve
+  register: signoz_copy_result
   notify: Restart signoz
 
 - name: Restore SELinux context on signoz install dir
   ansible.builtin.command:
     cmd: restorecon -Rv {{ signoz_install_dir }}
   changed_when: false
+  when: signoz_copy_result.changed
 
 - name: Cleanup signoz temp extraction dir
   ansible.builtin.file:
@@ -72,18 +83,13 @@
     path: "/tmp/signoz.tar.gz"
     state: absent
 
-- name: Ensure signoz conf directory exists
-  ansible.builtin.file:
-    path: "{{ signoz_install_dir }}/conf"
-    state: directory
-    owner: "{{ signoz_user }}"
-    group: "{{ signoz_group }}"
-    mode: "0755"
-
+# -----------------------------------------------------------------------------
+# Configuration
+# -----------------------------------------------------------------------------
 - name: Deploy signoz systemd environment file
   ansible.builtin.template:
     src: systemd.env.j2
-    dest: "{{ signoz_install_dir }}/conf/systemd.env"
+    dest: "{{ signoz_conf_dir }}/systemd.env"
     owner: "{{ signoz_user }}"
     group: "{{ signoz_group }}"
     mode: "0640"
@@ -97,19 +103,46 @@
     group: root
     mode: "0644"
   notify:
-  - Reload systemd
-  - Restart signoz
+    - Reload systemd
+    - Restart signoz
 
+# -----------------------------------------------------------------------------
+# Migrations
+# Runs before service start to ensure ClickHouse schema is up to date.
+# Idempotent — safe to run on every execution.
+# -----------------------------------------------------------------------------
 - name: Run ClickHouse schema migrations
   ansible.builtin.include_tasks: migrations.yml
   when: signoz_run_migrations | bool
 
+# -----------------------------------------------------------------------------
+# Service
+# -----------------------------------------------------------------------------
 - name: Enable and start signoz
   ansible.builtin.systemd:
     name: signoz.service
     enabled: true
     state: started
     daemon_reload: true
+
+# -----------------------------------------------------------------------------
+# Verification
+# -----------------------------------------------------------------------------
+- name: Verify signoz service is running
+  ansible.builtin.systemd:
+    name: signoz.service
+  register: signoz_service_status
+
+- name: Assert signoz service is active
+  ansible.builtin.assert:
+    that:
+      - signoz_service_status.status.ActiveState == 'active'
+      - signoz_service_status.status.SubState == 'running'
+    fail_msg: >-
+      signoz.service is not running.
+      ActiveState={{ signoz_service_status.status.ActiveState }}
+      SubState={{ signoz_service_status.status.SubState }}
+    success_msg: "signoz.service is active and running"
 
 - name: Wait for signoz API to be ready
   ansible.builtin.wait_for:
@@ -132,6 +165,6 @@
 - name: Assert signoz health status is ok
   ansible.builtin.assert:
     that:
-    - (signoz_health.json.status | default('')) == 'ok'
+      - (signoz_health.json.status | default('')) == 'ok'
     fail_msg: "SigNoz health endpoint returned unexpected status: {{ signoz_health.content }}"
     success_msg: "SigNoz is healthy"

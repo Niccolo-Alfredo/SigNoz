@@ -1,4 +1,9 @@
 ---
+# -----------------------------------------------------------------------------
+# Download and extract the OTel Collector binary used only for migrations.
+# The binary is extracted fresh each time to ensure it matches the pinned
+# version, then cleaned up after migrations complete.
+# -----------------------------------------------------------------------------
 - name: Create migrations temporary directory
   ansible.builtin.file:
     path: "{{ signoz_migrations_tmp_dir }}"
@@ -26,32 +31,48 @@
     path: "{{ signoz_migration_binary }}"
     mode: "0755"
 
+# restorecon always runs here: the binary is always freshly extracted from /tmp
+# so the SELinux context is always user_tmp_t and must be corrected before exec
 - name: Restore SELinux context on migration binary
   ansible.builtin.command:
     cmd: restorecon -Rv {{ signoz_migrations_tmp_dir }}
   changed_when: false
 
+# -----------------------------------------------------------------------------
+# Migrations
+# All three steps are idempotent — safe to re-run.
+# no_log hides the DSN (contains the ClickHouse password) from Ansible output.
+# -----------------------------------------------------------------------------
 - name: Run bootstrap migration
   ansible.builtin.command:
     cmd: >-
-      {{ signoz_migration_binary }} migrate bootstrap --clickhouse-dsn={{ signoz_clickhouse_dsn }} --clickhouse-replication=true
+      {{ signoz_migration_binary }} migrate bootstrap
+      --clickhouse-dsn={{ signoz_clickhouse_dsn }}
+      --clickhouse-replication=true
   changed_when: false
   no_log: true
 
 - name: Run sync migrations (up)
   ansible.builtin.command:
     cmd: >-
-      {{ signoz_migration_binary }} migrate sync up --clickhouse-dsn={{ signoz_clickhouse_dsn }} --clickhouse-replication=true
+      {{ signoz_migration_binary }} migrate sync up
+      --clickhouse-dsn={{ signoz_clickhouse_dsn }}
+      --clickhouse-replication=true
   changed_when: false
   no_log: true
 
 - name: Run async migrations (up)
   ansible.builtin.command:
     cmd: >-
-      {{ signoz_migration_binary }} migrate async up --clickhouse-dsn={{ signoz_clickhouse_dsn }} --clickhouse-replication=true
+      {{ signoz_migration_binary }} migrate async up
+      --clickhouse-dsn={{ signoz_clickhouse_dsn }}
+      --clickhouse-replication=true
   changed_when: false
   no_log: true
 
+# -----------------------------------------------------------------------------
+# Cleanup
+# -----------------------------------------------------------------------------
 - name: Cleanup migration temporary directory
   ansible.builtin.file:
     path: "{{ signoz_migrations_tmp_dir }}"

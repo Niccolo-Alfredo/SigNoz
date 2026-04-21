@@ -50,14 +50,12 @@
   changed_when: false
   no_log: true
 
-- name: Set TTL for signoz_traces tables (unix_milli column)
+- name: Set TTL for signoz_traces.tag_attributes_v2 (unix_milli column)
   ansible.builtin.command:
     cmd: >-
       clickhouse-client --password {{ clickhouse_password }}
-      --query "ALTER TABLE {{ item }}
+      --query "ALTER TABLE signoz_traces.tag_attributes_v2
                MODIFY TTL toDateTime(unix_milli / 1000) + toIntervalDay({{ signoz_retention_traces_days }})"
-  loop:
-    - signoz_traces.tag_attributes_v2
   changed_when: false
   no_log: true
 
@@ -90,14 +88,12 @@
   changed_when: false
   no_log: true
 
-- name: Set TTL for signoz_logs tables (unix_milli column)
+- name: Set TTL for signoz_logs.tag_attributes_v2 (unix_milli column)
   ansible.builtin.command:
     cmd: >-
       clickhouse-client --password {{ clickhouse_password }}
-      --query "ALTER TABLE {{ item }}
+      --query "ALTER TABLE signoz_logs.tag_attributes_v2
                MODIFY TTL toDateTime(unix_milli / 1000) + toIntervalDay({{ signoz_retention_logs_days }})"
-  loop:
-    - signoz_logs.tag_attributes_v2
   changed_when: false
   no_log: true
 
@@ -142,6 +138,7 @@
 
 # -----------------------------------------------------------------------------
 # ClickHouse system logs (log interni del motore — non dati applicativi)
+# Tabelle verificate su ClickHouse 25.8.22
 # -----------------------------------------------------------------------------
 - name: Set TTL for ClickHouse system log tables (event_date column)
   ansible.builtin.command:
@@ -151,6 +148,7 @@
                MODIFY TTL event_date + toIntervalDay({{ signoz_retention_system_logs_days }})"
   loop:
     - system.query_log
+    - system.query_metric_log
     - system.metric_log
     - system.asynchronous_metric_log
     - system.text_log
@@ -158,13 +156,12 @@
     - system.part_log
     - system.error_log
     - system.processors_profile_log
-    - system.asynchronous_insert_log
-    - system.crash_log
   changed_when: false
   no_log: true
 
 # -----------------------------------------------------------------------------
-# Attiva il motore TTL merges
+# TTL merges engine — eseguire solo in caso di recovery
+# Default: false — il motore è sempre attivo su installazioni fresche
 # -----------------------------------------------------------------------------
 - name: Start TTL merges engine
   ansible.builtin.command:

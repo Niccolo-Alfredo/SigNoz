@@ -138,6 +138,14 @@
   tags: [signoz_otel_collector, service]
 
 # -----------------------------------------------------------------------------
+# Flush handlers prima della verifica
+# Garantisce che restart/reload siano completati prima dei check.
+# -----------------------------------------------------------------------------
+- name: Flush handlers
+  ansible.builtin.meta: flush_handlers
+  tags: [signoz_otel_collector, verify]
+
+# -----------------------------------------------------------------------------
 # Verification
 # -----------------------------------------------------------------------------
 - name: Verify signoz-otel-collector service is running

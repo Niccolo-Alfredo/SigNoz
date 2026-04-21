@@ -47,4 +47,3 @@ zookeeper_system_packages:
   - tar
   - policycoreutils
   - policycoreutils-python-utils
-  - nmap-ncat

@@ -150,13 +150,13 @@
     daemon_reload: true
   tags: [clickhouse, service]
 
-- name: Wait for ClickHouse to be ready on port 9000
-  ansible.builtin.wait_for:
-    host: 127.0.0.1
-    port: "{{ clickhouse_remote_port }}"
-    delay: 2
-    timeout: 60
-  tags: [clickhouse, service]
+# -----------------------------------------------------------------------------
+# Flush handlers prima della verifica
+# Garantisce che restart/reload siano completati prima dei check.
+# -----------------------------------------------------------------------------
+- name: Flush handlers
+  ansible.builtin.meta: flush_handlers
+  tags: [clickhouse, verify]
 
 # -----------------------------------------------------------------------------
 # Verification
@@ -177,6 +177,14 @@
       ActiveState={{ clickhouse_service_status.status.ActiveState }}
       SubState={{ clickhouse_service_status.status.SubState }}
     success_msg: "clickhouse-server.service is active and running"
+  tags: [clickhouse, verify]
+
+- name: Wait for ClickHouse to be ready on port 9000
+  ansible.builtin.wait_for:
+    host: 127.0.0.1
+    port: "{{ clickhouse_remote_port }}"
+    delay: 2
+    timeout: 60
   tags: [clickhouse, verify]
 
 - name: Verify ClickHouse responds to a test query

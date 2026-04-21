@@ -139,6 +139,14 @@
   tags: [signoz, service]
 
 # -----------------------------------------------------------------------------
+# Flush handlers prima della verifica
+# Garantisce che restart/reload siano completati prima dei check.
+# -----------------------------------------------------------------------------
+- name: Flush handlers
+  ansible.builtin.meta: flush_handlers
+  tags: [signoz, verify]
+
+# -----------------------------------------------------------------------------
 # Verification
 # -----------------------------------------------------------------------------
 - name: Verify signoz service is running

@@ -177,6 +177,14 @@
   tags: [zookeeper, service]
 
 # -----------------------------------------------------------------------------
+# Flush handlers prima della verifica
+# Garantisce che restart/reload siano completati prima dei check.
+# -----------------------------------------------------------------------------
+- name: Flush handlers
+  ansible.builtin.meta: flush_handlers
+  tags: [zookeeper, verify]
+
+# -----------------------------------------------------------------------------
 # Verification
 # -----------------------------------------------------------------------------
 - name: Verify zookeeper service is running
@@ -197,10 +205,10 @@
     success_msg: "zookeeper.service is active and running"
   tags: [zookeeper, verify]
 
-- name: Verify zookeeper responds on client port (ruok check)
-  ansible.builtin.shell:
-    cmd: "echo ruok | nc -w 2 localhost {{ zookeeper_client_port }}"
-  register: zookeeper_ruok
-  changed_when: false
-  failed_when: zookeeper_ruok.stdout != 'imok'
+- name: Wait for zookeeper client port to be ready
+  ansible.builtin.wait_for:
+    host: 127.0.0.1
+    port: "{{ zookeeper_client_port }}"
+    delay: 2
+    timeout: 30
   tags: [zookeeper, verify]

@@ -7,7 +7,7 @@
     name: "{{ signoz_group }}"
     system: true
     state: present
-  tags: [signoz, install]
+  tags: [signoz, install, signoz_install]
 
 - name: Check if signoz user already exists
   ansible.builtin.getent:
@@ -15,7 +15,7 @@
     key: "{{ signoz_user }}"
   register: signoz_user_check
   failed_when: false
-  tags: [signoz, install]
+  tags: [signoz, install, signoz_install]
 
 - name: Create signoz user if not present
   ansible.builtin.user:
@@ -27,7 +27,7 @@
     shell: /sbin/nologin
     state: present
   when: signoz_user_check.ansible_facts is not defined
-  tags: [signoz, install]
+  tags: [signoz, install, signoz_install]
 
 - name: Create signoz directories
   ansible.builtin.file:
@@ -40,7 +40,7 @@
     - "{{ signoz_install_dir }}"
     - "{{ signoz_data_dir }}"
     - "{{ signoz_conf_dir }}"
-  tags: [signoz, install]
+  tags: [signoz, install, signoz_install]
 
 # -----------------------------------------------------------------------------
 # Binary install
@@ -51,14 +51,14 @@
     dest: "/tmp/signoz.tar.gz"
     mode: "0644"
     force: "{{ signoz_version == 'latest' }}"
-  tags: [signoz, install]
+  tags: [signoz, install, signoz_install]
 
 - name: Extract signoz archive
   ansible.builtin.unarchive:
     src: "/tmp/signoz.tar.gz"
     dest: /tmp
     remote_src: true
-  tags: [signoz, install]
+  tags: [signoz, install, signoz_install]
 
 - name: Copy signoz files into install dir
   ansible.builtin.copy:
@@ -70,26 +70,26 @@
     mode: preserve
   register: signoz_copy_result
   notify: Restart signoz
-  tags: [signoz, install]
+  tags: [signoz, install, signoz_install]
 
 - name: Restore SELinux context on signoz install dir
   ansible.builtin.command:
     cmd: restorecon -Rv {{ signoz_install_dir }}
   changed_when: false
   when: signoz_copy_result.changed
-  tags: [signoz, install]
+  tags: [signoz, install, signoz_install]
 
 - name: Cleanup signoz temp extraction dir
   ansible.builtin.file:
     path: "/tmp/{{ signoz_extracted_dirname }}"
     state: absent
-  tags: [signoz, install]
+  tags: [signoz, install, signoz_install]
 
 - name: Cleanup signoz archive
   ansible.builtin.file:
     path: "/tmp/signoz.tar.gz"
     state: absent
-  tags: [signoz, install]
+  tags: [signoz, install, signoz_install]
 
 # -----------------------------------------------------------------------------
 # Configuration
@@ -102,7 +102,7 @@
     group: "{{ signoz_group }}"
     mode: "0640"
   notify: Restart signoz
-  tags: [signoz, configure]
+  tags: [signoz, configure, signoz_configure, service, signoz_service]
 
 - name: Deploy signoz systemd unit
   ansible.builtin.template:
@@ -114,7 +114,7 @@
   notify:
     - Reload systemd
     - Restart signoz
-  tags: [signoz, configure, service]
+  tags: [signoz, configure, signoz_configure, service, signoz_service]
 
 # -----------------------------------------------------------------------------
 # Migrations
@@ -123,9 +123,9 @@
   ansible.builtin.include_tasks:
     file: migrations.yml
     apply:
-      tags: [signoz, migrations]
+      tags: [signoz, signoz_migrations]
   when: signoz_run_migrations | bool
-  tags: [signoz, migrations]
+  tags: [signoz, signoz_migrations]
 
 # -----------------------------------------------------------------------------
 # Service
@@ -136,7 +136,7 @@
     enabled: true
     state: started
     daemon_reload: true
-  tags: [signoz, service]
+  tags: [signoz, service, signoz_service]
 
 # -----------------------------------------------------------------------------
 # Flush handlers prima della verifica
@@ -144,7 +144,7 @@
 # -----------------------------------------------------------------------------
 - name: Flush handlers
   ansible.builtin.meta: flush_handlers
-  tags: [signoz, verify]
+  tags: [signoz, verify, signoz_verify]
 
 # -----------------------------------------------------------------------------
 # Verification
@@ -153,7 +153,7 @@
   ansible.builtin.systemd:
     name: signoz.service
   register: signoz_service_status
-  tags: [signoz, verify]
+  tags: [signoz, verify, signoz_verify]
 
 - name: Assert signoz service is active
   ansible.builtin.assert:
@@ -165,7 +165,7 @@
       ActiveState={{ signoz_service_status.status.ActiveState }}
       SubState={{ signoz_service_status.status.SubState }}
     success_msg: "signoz.service is active and running"
-  tags: [signoz, verify]
+  tags: [signoz, verify, signoz_verify]
 
 - name: Wait for signoz API to be ready
   ansible.builtin.wait_for:
@@ -173,7 +173,7 @@
     port: "{{ signoz_api_port }}"
     delay: 3
     timeout: 120
-  tags: [signoz, verify]
+  tags: [signoz, verify, signoz_verify]
 
 - name: Verify signoz health endpoint
   ansible.builtin.uri:
@@ -185,7 +185,7 @@
   retries: 5
   delay: 3
   until: signoz_health.status == 200
-  tags: [signoz, verify]
+  tags: [signoz, verify, signoz_verify]
 
 - name: Assert signoz health status is ok
   ansible.builtin.assert:
@@ -193,4 +193,4 @@
       - (signoz_health.json.status | default('')) == 'ok'
     fail_msg: "SigNoz health endpoint returned unexpected status: {{ signoz_health.content }}"
     success_msg: "SigNoz is healthy"
-  tags: [signoz, verify]
+  tags: [signoz, verify, signoz_verify]

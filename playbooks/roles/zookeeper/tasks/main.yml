@@ -6,7 +6,7 @@
   ansible.builtin.dnf:
     name: "{{ zookeeper_system_packages }}"
     state: present
-  tags: [zookeeper, install]
+  tags: [zookeeper, install, zookeeper_install]
 
 # -----------------------------------------------------------------------------
 # User / Group / Directories
@@ -16,7 +16,7 @@
     name: "{{ zookeeper_group }}"
     system: true
     state: present
-  tags: [zookeeper, install]
+  tags: [zookeeper, install, zookeeper_install]
 
 - name: Create zookeeper user
   ansible.builtin.user:
@@ -27,7 +27,7 @@
     create_home: false
     shell: /sbin/nologin
     state: present
-  tags: [zookeeper, install]
+  tags: [zookeeper, install, zookeeper_install]
 
 - name: Create zookeeper directories
   ansible.builtin.file:
@@ -40,7 +40,7 @@
     - "{{ zookeeper_install_dir }}"
     - "{{ zookeeper_data_dir }}"
     - "{{ zookeeper_log_dir }}"
-  tags: [zookeeper, install]
+  tags: [zookeeper, install, zookeeper_install]
 
 # -----------------------------------------------------------------------------
 # Binary install (idempotent via VERSION marker)
@@ -49,7 +49,7 @@
   ansible.builtin.stat:
     path: "{{ zookeeper_install_dir }}/VERSION"
   register: zookeeper_version_stat
-  tags: [zookeeper, install]
+  tags: [zookeeper, install, zookeeper_install]
 
 - name: Read installed zookeeper version
   ansible.builtin.slurp:
@@ -57,7 +57,7 @@
   register: zookeeper_installed_version_raw
   when: zookeeper_version_stat.stat.exists
   failed_when: false
-  tags: [zookeeper, install]
+  tags: [zookeeper, install, zookeeper_install]
 
 - name: Set installed zookeeper version fact
   ansible.builtin.set_fact:
@@ -67,7 +67,7 @@
         if (zookeeper_version_stat.stat.exists and zookeeper_installed_version_raw.content is defined)
         else ''
       }}
-  tags: [zookeeper, install]
+  tags: [zookeeper, install, zookeeper_install]
 
 - name: Download zookeeper archive
   ansible.builtin.get_url:
@@ -75,7 +75,7 @@
     dest: "/tmp/{{ zookeeper_archive_filename }}"
     mode: "0644"
   when: zookeeper_installed_version != zookeeper_version
-  tags: [zookeeper, install]
+  tags: [zookeeper, install, zookeeper_install]
 
 - name: Extract zookeeper archive
   ansible.builtin.unarchive:
@@ -84,7 +84,7 @@
     remote_src: true
     creates: "/tmp/{{ zookeeper_extracted_dirname }}"
   when: zookeeper_installed_version != zookeeper_version
-  tags: [zookeeper, install]
+  tags: [zookeeper, install, zookeeper_install]
 
 - name: Copy zookeeper files into install dir
   ansible.builtin.copy:
@@ -97,7 +97,7 @@
   when: zookeeper_installed_version != zookeeper_version
   register: zookeeper_copy_result
   notify: Restart zookeeper
-  tags: [zookeeper, install]
+  tags: [zookeeper, install, zookeeper_install]
 
 - name: Write VERSION marker
   ansible.builtin.copy:
@@ -107,28 +107,28 @@
     group: "{{ zookeeper_group }}"
     mode: "0644"
   when: zookeeper_installed_version != zookeeper_version
-  tags: [zookeeper, install]
+  tags: [zookeeper, install, zookeeper_install]
 
 - name: Restore SELinux context on install dir
   ansible.builtin.command:
     cmd: restorecon -Rv {{ zookeeper_install_dir }}
   changed_when: false
   when: zookeeper_installed_version != zookeeper_version
-  tags: [zookeeper, install]
+  tags: [zookeeper, install, zookeeper_install]
 
 - name: Cleanup extracted dir from /tmp
   ansible.builtin.file:
     path: "/tmp/{{ zookeeper_extracted_dirname }}"
     state: absent
   when: zookeeper_installed_version != zookeeper_version
-  tags: [zookeeper, install]
+  tags: [zookeeper, install, zookeeper_install]
 
 - name: Cleanup archive from /tmp
   ansible.builtin.file:
     path: "/tmp/{{ zookeeper_archive_filename }}"
     state: absent
   when: zookeeper_installed_version != zookeeper_version
-  tags: [zookeeper, install]
+  tags: [zookeeper, install, zookeeper_install]
 
 # -----------------------------------------------------------------------------
 # Configuration
@@ -141,7 +141,7 @@
     group: "{{ zookeeper_group }}"
     mode: "0644"
   notify: Restart zookeeper
-  tags: [zookeeper, configure]
+  tags: [zookeeper, configure, zookeeper_configure]
 
 - name: Deploy zoo.env
   ansible.builtin.template:
@@ -151,7 +151,7 @@
     group: "{{ zookeeper_group }}"
     mode: "0644"
   notify: Restart zookeeper
-  tags: [zookeeper, configure]
+  tags: [zookeeper, configure, zookeeper_configure]
 
 # -----------------------------------------------------------------------------
 # Systemd
@@ -166,7 +166,7 @@
   notify:
     - Reload systemd
     - Restart zookeeper
-  tags: [zookeeper, configure, service]
+  tags: [zookeeper, configure, service, zookeeper_service, zookeeper_configure]
 
 - name: Enable and start zookeeper
   ansible.builtin.systemd:
@@ -174,7 +174,7 @@
     enabled: true
     state: started
     daemon_reload: true
-  tags: [zookeeper, service]
+  tags: [zookeeper, service, zookeeper_service]
 
 # -----------------------------------------------------------------------------
 # Flush handlers prima della verifica
@@ -182,7 +182,7 @@
 # -----------------------------------------------------------------------------
 - name: Flush handlers
   ansible.builtin.meta: flush_handlers
-  tags: [zookeeper, verify]
+  tags: [zookeeper, verify, zookeeper_verify]
 
 # -----------------------------------------------------------------------------
 # Verification
@@ -191,7 +191,7 @@
   ansible.builtin.systemd:
     name: zookeeper.service
   register: zookeeper_service_status
-  tags: [zookeeper, verify]
+  tags: [zookeeper, verify, zookeeper_verify]
 
 - name: Assert zookeeper service is active
   ansible.builtin.assert:
@@ -203,7 +203,7 @@
       ActiveState={{ zookeeper_service_status.status.ActiveState }}
       SubState={{ zookeeper_service_status.status.SubState }}
     success_msg: "zookeeper.service is active and running"
-  tags: [zookeeper, verify]
+  tags: [zookeeper, verify, zookeeper_verify]
 
 - name: Wait for zookeeper client port to be ready
   ansible.builtin.wait_for:
@@ -211,4 +211,4 @@
     port: "{{ zookeeper_client_port }}"
     delay: 2
     timeout: 30
-  tags: [zookeeper, verify]
+  tags: [zookeeper, verify, zookeeper_verify]

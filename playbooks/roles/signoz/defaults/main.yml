@@ -3,11 +3,13 @@
 # Versions
 # SigNoz and signoz-otel-collector share the same release cadence —
 # always keep these two versions aligned.
-# Use "latest" to always pull the latest release, or pin to a specific
-# version tag (e.g. "v0.79.0") for reproducible deployments.
+# IMPORTANT: do not use "latest" for signoz_otel_collector_version —
+# the /releases/latest endpoint may resolve to a source-only tag with no
+# binary assets. Always pin to a known stable release with compiled binaries.
+# Last verified stable with binaries: v0.129.13
 # -----------------------------------------------------------------------------
-signoz_version: "latest"
-signoz_otel_collector_version: "latest"
+signoz_version: "v0.119.0"
+signoz_otel_collector_version: "v0.129.13"
 
 # -----------------------------------------------------------------------------
 # Paths
@@ -63,8 +65,6 @@ signoz_arch: "{{ signoz_arch_map[ansible_architecture] }}"
 
 # -----------------------------------------------------------------------------
 # Download URLs
-# Derived automatically from version and architecture — do not override unless
-# you need to point to a custom mirror or a pre-release asset.
 # -----------------------------------------------------------------------------
 signoz_download_url: >-
   {{

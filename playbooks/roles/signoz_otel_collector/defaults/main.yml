@@ -4,9 +4,12 @@
 # Must be kept aligned with signoz_otel_collector_version in the signoz role —
 # the same binary is used both for migrations (signoz role) and as the
 # running collector service (this role).
-# Use "latest" or pin to a specific tag (e.g. "v0.111.40").
+# IMPORTANT: do not use "latest" — the /releases/latest endpoint may resolve
+# to a source-only tag with no binary assets.
+# Always pin to a known stable release with compiled binaries.
+# Last verified stable with binaries: v0.129.13
 # -----------------------------------------------------------------------------
-signoz_otel_collector_version: "latest"
+signoz_otel_collector_version: "v0.129.13"
 
 # -----------------------------------------------------------------------------
 # Paths

@@ -38,8 +38,8 @@ clickhouse_keep_free_space_bytes: 21474836480  # 20GB su 950GB disco
 # SigNoz
 # Pinnare le versioni prima della promozione in produzione.
 # -----------------------------------------------------------------------------
-signoz_version: "latest"
-signoz_otel_collector_version: "latest"
+signoz_version: "v0.119.0"
+signoz_otel_collector_version: "v0.129.13"
 signoz_install_dir: /opt/signoz
 signoz_data_dir: /var/lib/signoz
 signoz_user: signoz

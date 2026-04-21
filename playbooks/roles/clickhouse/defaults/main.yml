@@ -1,41 +1,77 @@
 ---
-# Version pinning
-# Set to a specific version like "25.8.22.28" to pin, or leave empty for latest in channel
+# -----------------------------------------------------------------------------
+# Version
+# Pin to a specific LTS version for stability in staging and production.
+# Check https://clickhouse.com/docs/en/whats-new/changelog for updates.
+# Leave empty ("") to always install the latest available in the channel.
+# -----------------------------------------------------------------------------
 clickhouse_version: "25.8.22.28"
 
-# Repository channel: "lts" or "stable"
+# -----------------------------------------------------------------------------
+# Repository
+# channel: "lts" for Long Term Support (~quarterly releases, recommended)
+#          "stable" for latest stable (more frequent releases)
+# The official .repo file from ClickHouse contains both channels; we enable
+# only the selected one and disable the other to avoid version conflicts.
+# -----------------------------------------------------------------------------
 clickhouse_repo_channel: "lts"
 
+# -----------------------------------------------------------------------------
 # Packages
+# -----------------------------------------------------------------------------
 clickhouse_packages:
   - clickhouse-server
   - clickhouse-client
 
-# Database credentials
-# NOTE: staging/prod internal password. To be moved to ansible-vault.
+# -----------------------------------------------------------------------------
+# Credentials
+# NOTE: internal password, not exposed outside the host.
+# TODO: move to ansible-vault before production rollout.
+# -----------------------------------------------------------------------------
 clickhouse_password: "password"
 
+# -----------------------------------------------------------------------------
 # Paths
+# config.d and users.d are the override directories — we never touch
+# the main config.xml installed by the RPM package.
+# -----------------------------------------------------------------------------
 clickhouse_config_dir: /etc/clickhouse-server/config.d
 clickhouse_users_dir: /etc/clickhouse-server/users.d
 
-# Cluster topology (single-node, replicated schema for SigNoz compatibility)
+# -----------------------------------------------------------------------------
+# Cluster topology
+# Single-node setup with replicated schema for SigNoz compatibility.
+# SigNoz migrations use --clickhouse-replication=true which requires
+# macros and remote_servers to be defined even for a single node.
+# -----------------------------------------------------------------------------
 clickhouse_cluster_name: cluster
 clickhouse_shard: "01"
 clickhouse_replica: "01"
 
+# -----------------------------------------------------------------------------
 # Zookeeper connection
+# Must match zookeeper role defaults (zookeeper_client_port).
+# -----------------------------------------------------------------------------
 clickhouse_zookeeper_host: 127.0.0.1
 clickhouse_zookeeper_port: 2181
 
+# -----------------------------------------------------------------------------
 # Ports
+# -----------------------------------------------------------------------------
 clickhouse_remote_host: 127.0.0.1
 clickhouse_remote_port: 9000
 
-# System user (created by RPM package)
+# -----------------------------------------------------------------------------
+# System user
+# Created automatically by the RPM package — do not change.
+# -----------------------------------------------------------------------------
 clickhouse_user: clickhouse
 clickhouse_group: clickhouse
 
-# Storage: minimum free space to keep on the default disk.
-# 20GB = 21474836480 bytes. Adjust based on available disk.
+# -----------------------------------------------------------------------------
+# Storage
+# Minimum free space to always keep available on the default disk.
+# Prevents ClickHouse from filling the disk completely.
+# 20GB (21474836480 bytes) on a 950GB disk = ~2% reserved headroom.
+# -----------------------------------------------------------------------------
 clickhouse_keep_free_space_bytes: 21474836480

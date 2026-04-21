@@ -157,3 +157,29 @@
     enabled: true
     state: started
     daemon_reload: true
+
+# -----------------------------------------------------------------------------
+# Verification
+# -----------------------------------------------------------------------------
+- name: Verify zookeeper service is running
+  ansible.builtin.systemd:
+    name: zookeeper.service
+  register: zookeeper_service_status
+
+- name: Assert zookeeper service is active
+  ansible.builtin.assert:
+    that:
+      - zookeeper_service_status.status.ActiveState == 'active'
+      - zookeeper_service_status.status.SubState == 'running'
+    fail_msg: >-
+      zookeeper.service is not running.
+      ActiveState={{ zookeeper_service_status.status.ActiveState }}
+      SubState={{ zookeeper_service_status.status.SubState }}
+    success_msg: "zookeeper.service is active and running"
+
+- name: Verify zookeeper responds on client port (ruok check)
+  ansible.builtin.shell:
+    cmd: "echo ruok | nc -w 2 {{ zookeeper_client_port }} localhost"
+  register: zookeeper_ruok
+  changed_when: false
+  failed_when: zookeeper_ruok.stdout != 'imok'

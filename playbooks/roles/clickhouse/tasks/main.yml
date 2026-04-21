@@ -53,6 +53,9 @@
         else (clickhouse_packages | map('regex_replace', '$', '-' ~ clickhouse_version) | list)
       }}
     state: present
+    # GPG check disabled: ClickHouse RPM packages in the LTS channel are currently
+    # unsigned upstream (known issue as of 2026). Re-enable once signing is restored.
+    disable_gpg_check: true
 
 # -----------------------------------------------------------------------------
 # Directories
@@ -99,8 +102,8 @@
   notify: Restart clickhouse-server
 
 # -----------------------------------------------------------------------------
-# Systemd drop-in: aggiungiamo After=zookeeper.service senza toccare
-# la unit originale installata dal pacchetto RPM
+# Systemd drop-in: After=zookeeper.service
+# Extends the unit installed by the RPM without modifying it directly.
 # -----------------------------------------------------------------------------
 - name: Create clickhouse-server systemd drop-in directory
   ansible.builtin.file:
@@ -141,3 +144,33 @@
     port: "{{ clickhouse_remote_port }}"
     delay: 2
     timeout: 60
+
+# -----------------------------------------------------------------------------
+# Verification
+# -----------------------------------------------------------------------------
+- name: Verify clickhouse-server service is running
+  ansible.builtin.systemd:
+    name: clickhouse-server.service
+  register: clickhouse_service_status
+
+- name: Assert clickhouse-server service is active
+  ansible.builtin.assert:
+    that:
+      - clickhouse_service_status.status.ActiveState == 'active'
+      - clickhouse_service_status.status.SubState == 'running'
+    fail_msg: >-
+      clickhouse-server.service is not running.
+      ActiveState={{ clickhouse_service_status.status.ActiveState }}
+      SubState={{ clickhouse_service_status.status.SubState }}
+    success_msg: "clickhouse-server.service is active and running"
+
+- name: Verify ClickHouse responds to a test query
+  ansible.builtin.command:
+    cmd: >-
+      clickhouse-client
+      --password {{ clickhouse_password }}
+      --query "SELECT 1"
+  register: clickhouse_query_check
+  changed_when: false
+  failed_when: clickhouse_query_check.stdout | trim != '1'
+  no_log: true

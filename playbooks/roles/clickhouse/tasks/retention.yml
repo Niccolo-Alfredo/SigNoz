@@ -174,4 +174,3 @@
   changed_when: false
   no_log: true
   when: clickhouse_start_ttl_merges | bool
-  tags: [clickhouse, clickhouse_retention]

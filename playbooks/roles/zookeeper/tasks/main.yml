@@ -199,7 +199,7 @@
 
 - name: Verify zookeeper responds on client port (ruok check)
   ansible.builtin.shell:
-    cmd: "echo ruok | nc -w 2 {{ zookeeper_client_port }} localhost"
+    cmd: "echo ruok | nc -w 2 localhost {{ zookeeper_client_port }}"
   register: zookeeper_ruok
   changed_when: false
   failed_when: zookeeper_ruok.stdout != 'imok'

@@ -1,13 +1,15 @@
 ---
-- name: Install required packages (Java + tar + SELinux tools)
+# -----------------------------------------------------------------------------
+# System packages
+# -----------------------------------------------------------------------------
+- name: Install required system packages
   ansible.builtin.dnf:
-    name:
-    - java-17-openjdk-headless
-    - tar
-    - policycoreutils
-    - policycoreutils-python-utils
+    name: "{{ zookeeper_system_packages }}"
     state: present
 
+# -----------------------------------------------------------------------------
+# User / Group / Directories
+# -----------------------------------------------------------------------------
 - name: Create zookeeper group
   ansible.builtin.group:
     name: "{{ zookeeper_group }}"
@@ -32,16 +34,20 @@
     group: "{{ zookeeper_group }}"
     mode: "0755"
   loop:
-  - "{{ zookeeper_install_dir }}"
-  - "{{ zookeeper_data_dir }}"
-  - "{{ zookeeper_log_dir }}"
+    - "{{ zookeeper_install_dir }}"
+    - "{{ zookeeper_data_dir }}"
+    - "{{ zookeeper_log_dir }}"
 
-- name: Check if zookeeper binary already installed at the target version
+# -----------------------------------------------------------------------------
+# Binary install (idempotent via VERSION marker)
+# Download and extract only if the installed version differs from the target.
+# -----------------------------------------------------------------------------
+- name: Check installed zookeeper version
   ansible.builtin.stat:
     path: "{{ zookeeper_install_dir }}/VERSION"
   register: zookeeper_version_stat
 
-- name: Read installed zookeeper version (if present)
+- name: Read installed zookeeper version
   ansible.builtin.slurp:
     src: "{{ zookeeper_install_dir }}/VERSION"
   register: zookeeper_installed_version_raw
@@ -83,7 +89,7 @@
   when: zookeeper_installed_version != zookeeper_version
   notify: Restart zookeeper
 
-- name: Write zookeeper VERSION marker
+- name: Write VERSION marker
   ansible.builtin.copy:
     content: "{{ zookeeper_version }}"
     dest: "{{ zookeeper_install_dir }}/VERSION"
@@ -92,23 +98,27 @@
     mode: "0644"
   when: zookeeper_installed_version != zookeeper_version
 
-- name: Cleanup zookeeper extracted dir from /tmp
+- name: Restore SELinux context on install dir
+  ansible.builtin.command:
+    cmd: restorecon -Rv {{ zookeeper_install_dir }}
+  changed_when: false
+  when: zookeeper_installed_version != zookeeper_version
+
+- name: Cleanup extracted dir from /tmp
   ansible.builtin.file:
     path: "/tmp/{{ zookeeper_extracted_dirname }}"
     state: absent
   when: zookeeper_installed_version != zookeeper_version
 
-- name: Cleanup zookeeper archive from /tmp
+- name: Cleanup archive from /tmp
   ansible.builtin.file:
     path: "/tmp/{{ zookeeper_archive_filename }}"
     state: absent
   when: zookeeper_installed_version != zookeeper_version
 
-- name: Restore SELinux context on zookeeper install dir
-  ansible.builtin.command:
-    cmd: restorecon -Rv {{ zookeeper_install_dir }}
-  changed_when: false
-
+# -----------------------------------------------------------------------------
+# Configuration
+# -----------------------------------------------------------------------------
 - name: Deploy zoo.cfg
   ansible.builtin.template:
     src: zoo.cfg.j2
@@ -127,6 +137,9 @@
     mode: "0644"
   notify: Restart zookeeper
 
+# -----------------------------------------------------------------------------
+# Systemd
+# -----------------------------------------------------------------------------
 - name: Deploy zookeeper systemd unit
   ansible.builtin.template:
     src: zookeeper.service.j2
@@ -135,8 +148,8 @@
     group: root
     mode: "0644"
   notify:
-  - Reload systemd
-  - Restart zookeeper
+    - Reload systemd
+    - Restart zookeeper
 
 - name: Enable and start zookeeper
   ansible.builtin.systemd:

@@ -99,6 +99,33 @@
   notify: Restart clickhouse-server
 
 # -----------------------------------------------------------------------------
+# Systemd drop-in: aggiungiamo After=zookeeper.service senza toccare
+# la unit originale installata dal pacchetto RPM
+# -----------------------------------------------------------------------------
+- name: Create clickhouse-server systemd drop-in directory
+  ansible.builtin.file:
+    path: /etc/systemd/system/clickhouse-server.service.d
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Deploy clickhouse-server systemd drop-in (After=zookeeper.service)
+  ansible.builtin.copy:
+    content: |
+      # Managed by Ansible - do not edit manually
+      [Unit]
+      After=zookeeper.service
+      Wants=zookeeper.service
+    dest: /etc/systemd/system/clickhouse-server.service.d/zookeeper-dep.conf
+    owner: root
+    group: root
+    mode: "0644"
+  notify:
+    - Reload systemd
+    - Restart clickhouse-server
+
+# -----------------------------------------------------------------------------
 # Service
 # -----------------------------------------------------------------------------
 - name: Enable and start clickhouse-server
@@ -106,6 +133,7 @@
     name: clickhouse-server.service
     enabled: true
     state: started
+    daemon_reload: true
 
 - name: Wait for ClickHouse to be ready on port 9000
   ansible.builtin.wait_for:

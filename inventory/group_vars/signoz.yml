@@ -24,7 +24,7 @@ zookeeper_tick_time: 2000
 # -----------------------------------------------------------------------------
 clickhouse_version: "25.8.22.28"
 clickhouse_repo_channel: "lts"
-clickhouse_password: "password"         # TODO: ansible-vault
+clickhouse_password: "password" # TODO: ansible-vault
 clickhouse_cluster_name: cluster
 clickhouse_shard: "01"
 clickhouse_replica: "01"
@@ -32,7 +32,7 @@ clickhouse_zookeeper_host: 127.0.0.1
 clickhouse_zookeeper_port: "{{ zookeeper_client_port }}"
 clickhouse_remote_host: 127.0.0.1
 clickhouse_remote_port: 9000
-clickhouse_keep_free_space_bytes: 21474836480  # 20GB su 950GB disco
+clickhouse_keep_free_space_bytes: 21474836480 # 20GB su 950GB disco
 
 # -----------------------------------------------------------------------------
 # SigNoz
@@ -45,7 +45,7 @@ signoz_data_dir: /var/lib/signoz
 signoz_user: signoz
 signoz_group: signoz
 signoz_api_port: 8080
-signoz_jwt_secret: "secret"             # TODO: ansible-vault
+signoz_jwt_secret: "secret" # TODO: ansible-vault
 signoz_alertmanager_provider: signoz
 signoz_telemetrystore_provider: clickhouse
 signoz_dot_metrics_enabled: true
@@ -58,12 +58,12 @@ signoz_clickhouse_dsn: "tcp://localhost:{{ clickhouse_remote_port }}?password={{
 # ClickHouse Retention (giorni) for signoz data (traces, logs, metrics, system logs).
 # Baseline: ~2.5gg = 19GB traces, 4.9GB system, 480MB metrics, 330MB logs
 # Disco disponibile: 920GB. Headroom riservato: ~100GB oltre keep_free_space.
-# Stima consumo totale con questi valori: ~276GB (~30% disco).
+# Stima consumo totale con questi valori: ~295GB (~30% disco).
 # -----------------------------------------------------------------------------
-signoz_retention_traces_days: 30       # ~8 GB/giorno → ~240 GB
-signoz_retention_logs_days: 30         # ~0.15 GB/giorno → ~4.5 GB
-signoz_retention_metrics_days: 90      # ~0.2 GB/giorno → ~18 GB
-signoz_retention_system_logs_days: 7   # ~2 GB/giorno → ~14 GB
+signoz_retention_traces_days: 30 # ~8 GB/giorno → ~240 GB
+signoz_retention_logs_days: 60 # ~0.15 GB/giorno → ~9 GB
+signoz_retention_metrics_days: 90 # ~0.2 GB/giorno → ~18 GB
+signoz_retention_system_logs_days: 14 # ~2 GB/giorno → ~28 GB
 
 # -----------------------------------------------------------------------------
 # SigNoz OTel Collector
@@ -73,7 +73,7 @@ signoz_otel_data_dir: /var/lib/signoz-otel-collector
 signoz_otel_user: "{{ signoz_user }}"
 signoz_otel_group: "{{ signoz_group }}"
 signoz_otel_opamp_server_endpoint: "ws://127.0.0.1:4320/v1/opamp"
-signoz_otel_clickhouse_traces_dsn:   "tcp://localhost:{{ clickhouse_remote_port }}/signoz_traces?password={{ clickhouse_password }}"
-signoz_otel_clickhouse_metrics_dsn:  "tcp://localhost:{{ clickhouse_remote_port }}/signoz_metrics?password={{ clickhouse_password }}"
-signoz_otel_clickhouse_logs_dsn:     "tcp://localhost:{{ clickhouse_remote_port }}/signoz_logs?password={{ clickhouse_password }}"
+signoz_otel_clickhouse_traces_dsn: "tcp://localhost:{{ clickhouse_remote_port }}/signoz_traces?password={{ clickhouse_password }}"
+signoz_otel_clickhouse_metrics_dsn: "tcp://localhost:{{ clickhouse_remote_port }}/signoz_metrics?password={{ clickhouse_password }}"
+signoz_otel_clickhouse_logs_dsn: "tcp://localhost:{{ clickhouse_remote_port }}/signoz_logs?password={{ clickhouse_password }}"
 signoz_otel_clickhouse_metadata_dsn: "tcp://localhost:{{ clickhouse_remote_port }}/signoz_metadata?password={{ clickhouse_password }}"

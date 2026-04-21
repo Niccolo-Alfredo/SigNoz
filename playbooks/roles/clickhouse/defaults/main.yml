@@ -20,8 +20,8 @@ clickhouse_repo_channel: "lts"
 # Packages
 # -----------------------------------------------------------------------------
 clickhouse_packages:
-  - clickhouse-server
-  - clickhouse-client
+- clickhouse-server
+- clickhouse-client
 
 # -----------------------------------------------------------------------------
 # Credentials
@@ -79,9 +79,9 @@ clickhouse_start_ttl_merges: false
 # ClickHouse Retention (giorni) for signoz data (traces, logs, metrics, system logs).
 # Baseline: ~2.5gg = 19GB traces, 4.9GB system, 480MB metrics, 330MB logs
 # Disco disponibile: 920GB. Headroom riservato: ~100GB oltre keep_free_space.
-# Stima consumo totale con questi valori: ~276GB (~30% disco).
+# Stima consumo totale con questi valori: ~295GB (~30% disco).
 # -----------------------------------------------------------------------------
-signoz_retention_traces_days: 30       # ~8 GB/giorno → ~240 GB
-signoz_retention_logs_days: 30         # ~0.15 GB/giorno → ~4.5 GB
-signoz_retention_metrics_days: 90      # ~0.2 GB/giorno → ~18 GB
-signoz_retention_system_logs_days: 7   # ~2 GB/giorno → ~14 GB
+signoz_retention_traces_days: 30 # ~8 GB/giorno → ~240 GB
+signoz_retention_logs_days: 60 # ~0.15 GB/giorno → ~9 GB
+signoz_retention_metrics_days: 90 # ~0.2 GB/giorno → ~18 GB
+signoz_retention_system_logs_days: 14 # ~2 GB/giorno → ~28 GB

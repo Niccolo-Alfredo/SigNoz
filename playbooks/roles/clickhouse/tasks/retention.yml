@@ -31,7 +31,6 @@
     - signoz_traces.usage_explorer
   changed_when: false
   no_log: true
-  tags: [clickhouse, retention]
 
 - name: Set TTL for signoz_traces.trace_summary (end column)
   ansible.builtin.command:
@@ -41,7 +40,6 @@
                MODIFY TTL toDateTime(end) + toIntervalDay({{ signoz_retention_traces_days }})"
   changed_when: false
   no_log: true
-  tags: [clickhouse, retention]
 
 - name: Set TTL for signoz_traces.traces_v3_resource (seen_at_ts_bucket_start + 30min buffer)
   ansible.builtin.command:
@@ -51,7 +49,6 @@
                MODIFY TTL (toDateTime(seen_at_ts_bucket_start) + toIntervalDay({{ signoz_retention_traces_days }})) + toIntervalSecond(1800)"
   changed_when: false
   no_log: true
-  tags: [clickhouse, retention]
 
 - name: Set TTL for signoz_traces tables (unix_milli column)
   ansible.builtin.command:
@@ -63,7 +60,6 @@
     - signoz_traces.tag_attributes_v2
   changed_when: false
   no_log: true
-  tags: [clickhouse, retention]
 
 # -----------------------------------------------------------------------------
 # Logs — MODIFY COLUMN _retention_days (stesso meccanismo della UI SigNoz)
@@ -81,7 +77,6 @@
     - signoz_logs.distributed_logs_v2_resource
   changed_when: false
   no_log: true
-  tags: [clickhouse, retention]
 
 - name: Set TTL for signoz_logs tables (timestamp column)
   ansible.builtin.command:
@@ -94,7 +89,6 @@
     - signoz_logs.logs_resource_keys
   changed_when: false
   no_log: true
-  tags: [clickhouse, retention]
 
 - name: Set TTL for signoz_logs tables (unix_milli column)
   ansible.builtin.command:
@@ -106,7 +100,6 @@
     - signoz_logs.tag_attributes_v2
   changed_when: false
   no_log: true
-  tags: [clickhouse, retention]
 
 # -----------------------------------------------------------------------------
 # Metrics — TTL su colonna unix_milli
@@ -128,7 +121,6 @@
     - signoz_metrics.time_series_v4_1week
   changed_when: false
   no_log: true
-  tags: [clickhouse, retention]
 
 - name: Set TTL for signoz_metrics.samples_v2 (timestamp_ms column)
   ansible.builtin.command:
@@ -138,7 +130,6 @@
                MODIFY TTL toDateTime(timestamp_ms / 1000) + toIntervalDay({{ signoz_retention_metrics_days }})"
   changed_when: false
   no_log: true
-  tags: [clickhouse, retention]
 
 - name: Set TTL for signoz_metrics.metadata (last_reported_unix_milli column)
   ansible.builtin.command:
@@ -148,7 +139,6 @@
                MODIFY TTL toDateTime(last_reported_unix_milli / 1000) + toIntervalDay({{ signoz_retention_metrics_days }})"
   changed_when: false
   no_log: true
-  tags: [clickhouse, retention]
 
 # -----------------------------------------------------------------------------
 # ClickHouse system logs (log interni del motore — non dati applicativi)
@@ -172,7 +162,6 @@
     - system.crash_log
   changed_when: false
   no_log: true
-  tags: [clickhouse, retention]
 
 # -----------------------------------------------------------------------------
 # Attiva il motore TTL merges
